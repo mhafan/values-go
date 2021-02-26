@@ -1,4 +1,4 @@
-module pm
+module pump
 
 go 1.16
 

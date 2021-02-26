@@ -2,6 +2,11 @@ package main
 
 //
 import "fmt"
+import "flag"
+
+// ----------------------------------------------------------------------
+//
+var flServer = flag.Bool("s", false, "Run in server mode")
 
 
 // ----------------------------------------------------------------------
@@ -11,7 +16,20 @@ func main() {
   fmt.Println("patmod in golang")
 
   //
-  patient := &Patient{ 100 }
+  flag.Parse()
+
+  //
+  if *flServer == true {
+    //
+    rserverMain(); return;
+  }
+
+  //
+  patient := NewPatient()
+
+  //
+  patient.setDefaults()
+  patient.weightKG = 100
 
   //
   ss0 := emptySIMS(patient)

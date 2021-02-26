@@ -1,40 +1,11 @@
 package main
 
-//
-import "math"
-
 // ----------------------------------------------------------------------
 // 3 compartment model
 type COMP_X  [3+1] double
 
 //
-func bound(v double, vmin double, vmax double) double {
-  //
-  return math.Min(math.Max(v, vmin), vmax)
-}
-
-// ----------------------------------------------------------------------
-//
-type Hill struct {
-  //
-  emax  double
-  ec50  double
-  gamma double
-}
-
-// ----------------------------------------------------------------------
-//
-func (h Hill) value(inp double) double {
-  //
-  ip := math.Pow(inp, h.gamma)
-  ep := math.Pow(h.ec50, h.gamma)
-
-  //
-  out := h.emax * (ip / (ep + ip))
-
-  //
-  return math.Min(h.emax, out)
-}
+var _TOFbounds = Bounds{0, 100}
 
 // ----------------------------------------------------------------------
 //

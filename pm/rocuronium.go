@@ -99,7 +99,5 @@ func (ss *SIMS) rocSimStep() {
 
   //
   ss.rocs.effect = ss.rocs.rocHill.value(ss.rocs.yROC[1])
-  ss.rocs.TOF0 = int(bound(100.0 - ss.rocs.effect, 0, 100))
-
-  //
+  ss.rocs.TOF0 = int(_TOFbounds.bound(100.0 - ss.rocs.effect))
 }
