@@ -1,0 +1,6 @@
+for i in cnt cuff pm pump tcm
+do
+cd $i
+go build .
+cd ..
+done
