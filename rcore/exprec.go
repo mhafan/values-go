@@ -24,8 +24,8 @@ const (
 	CallTCM    = "TCM"
 
 	//
-	DrugRocuronium   = "ROC"
-	DrugCiatracurium = "CIS"
+	DrugRocuronium    = "ROC"
+	DrugCisatracurium = "CIS"
 
 	//
 	SexMale   = "male"

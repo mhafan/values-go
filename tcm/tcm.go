@@ -117,11 +117,11 @@ func main() {
 		// CNT -> PUMP -> PM -> CUFF -> TCM
 		// ------------------------------------------------------------------
 		// TCM passed the token to CNT. Now TCM needs to wait
-		// until the loop
+		// until the loop gets back to TCM
 		for _waiting == true {
 			//
 			select {
-			// input messages
+			// some input message, now check the channel
 			case msg := <-_meFollower.Inputs:
 				// calling me, ...
 				if msg.Channel == rcore.MasterChannel {
@@ -135,10 +135,11 @@ func main() {
 					}
 					//
 				} else {
-					//
+					// TCM,
 					if msg.Message == rcore.CallTCM {
-						//
+						// end of waiting...
 						_waiting = false
+						//
 						break
 					}
 				}
