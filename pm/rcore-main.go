@@ -4,107 +4,112 @@
 package main
 
 //
-import "rcore"
-import "log"
+import (
+	"log"
+	"rcore"
+)
 
-//
+// ----------------------------------------------------------------------
+// Current patient and current Simulation state
 var rpatient *Patient = nil
 var rsims *SIMS = nil
 
 // ----------------------------------------------------------------------
 // rcore.Exprec transger to SIMS (patmod internal data struct)
 func (r *SIMS) updateFrom(e *rcore.Exprec) {
-  // patient info
-  r.patient.weightKG = rcore.Double(e.Weight)
-  r.patient.age = e.Age
-  r.patient.sex = sexMale
-  // TODO: Vd_kg, ec50
-  // r.patient.rocCFG
+	// patient info
+	r.patient.weightKG = rcore.Double(e.Weight)
+	r.patient.age = e.Age
+	r.patient.sex = sexMale
+	// TODO: Vd_kg, ec50
+	// r.patient.rocCFG
 
-  //
-  r.time = e.Mtime
-
-  //
-  r.bolus = rcore.Volume { rcore.Double(e.Bolus), rcore.ML }
-  r.infusion = rcore.Volume_0()
+	//
+	r.bolus = rcore.Volume{rcore.Double(e.Bolus), rcore.ML}
+	r.infusion = rcore.Volume_0()
 }
 
 // ----------------------------------------------------------------------
 // For every cycle of distributed simulation.
 func rserverCycle() {
-  //
-  tol := []string { "mtime", "cycle", "bolus", "infusion" }
+	//
+	tol := []string{"mtime", "cycle", "bolus", "infusion"}
 
-  // --------------------------------------------------------------------
-  // load Redis record
-  if rcore.EntityExpRecReload(tol) == false {
-    //
-    panic("REDIS record not found")
-  }
+	// --------------------------------------------------------------------
+	// load Redis record
+	if rcore.EntityExpRecReload(tol) == false {
+		//
+		panic("REDIS record not found")
+	}
 
-  // ...
-  var _c = rcore.CurrentExp
+	// ...
+	var _c = rcore.CurrentExp
 
-  // --------------------------------------------------------------------
-  // REDIS record -> SIMS (patmod simulation state)
-  rsims.updateFrom(_c)
+	// --------------------------------------------------------------------
+	// REDIS record -> SIMS (patmod simulation state)
+	rsims.updateFrom(_c)
 
-  //
-  log.Println("PM; cycle: ", _c.Cycle, "mtime", _c.Mtime,
-      "rtime", rsims.time, "bolus ", _c.Bolus, " ", rsims.bolus)
+	//
+	log.Println("PMA; cycle: ", _c.Cycle, "mtime", _c.Mtime,
+		"rtime", rsims.time, "bolus ", _c.Bolus, " ", rsims.bolus)
 
-  // --------------------------------------------------------------------
-  // reach Mtime in 1s simulation steps
-  for rsims.time <= _c.Mtime {
-    // h = 1s, continuous simulation step
-    rsims.rocSimStep()
+	// --------------------------------------------------------------------
+	// reach Mtime in 1s simulation steps
+	for rsims.time <= _c.Mtime {
+		// h = 1s, continuous simulation step
+		rsims.rocSimStep()
 
-    //
-    log.Println(rsims.time, " ", rsims.rocs.yROC, " ", rsims.rocs.TOF0)
+		//
+		log.Println("HH ", rsims.time, " ", rsims.rocs.yROC, " ", rsims.rocs.TOF0,
+			rsims.rocs.effect)
 
-    // +1s
-    rsims = rsims.next1S();
+		//
+		_c.TOF = rsims.rocs.TOF0
+		_c.PTC = 0
 
-    //
-    if rsims.time == _c.Mtime { break }
-  }
+		// +1s
+		rsims = rsims.next1S()
+	}
 
-  //
-  _c.Say(rcore.CallSensor)
+	//
+	rcore.CurrentExp.Save([]string{"TOF", "PTC"}, false)
+
+	//
+	_c.Say(rcore.CallSensor)
 }
 
 // ----------------------------------------------------------------------
-//
+// vm.X.Y -> START
+// --- Initialization of new experiment
 func rserverStart() {
-  //
-  rpatient = NewPatient()
+	//
+	rpatient = NewPatient()
 
-  //
-  rpatient.setDefaults()
-  rpatient.weightKG = rcore.Double(rcore.CurrentExp.Weight)
+	//
+	rpatient.setDefaults()
+	rpatient.weightKG = rcore.Double(rcore.CurrentExp.Weight)
 
-  //
-  rsims = emptySIMS(rpatient)
+	//
+	rsims = emptySIMS(rpatient)
 
-  //
-  log.Println("Starting new patient: ", rsims)
+	//
+	log.Println("Starting new patient: ", rsims)
 }
 
 // ----------------------------------------------------------------------
-//
+// Deallocation of the current experiment
 func rserverEnd() {
-  //
-  rpatient = nil
-  rsims = nil
+	//
+	rpatient = nil
+	rsims = nil
 
-  //
-  log.Println("Ending the experiment")
+	//
+	log.Println("Ending the experiment")
 }
-
 
 // ----------------------------------------------------------------------
 // main function (called from main() when arg is -s)
 func rserverMain() {
-  //
-  rcore.EntityCore(rcore.CallPatMod, rserverCycle, rserverStart, rserverEnd);
+	//
+	rcore.EntityCore(rcore.CallPatMod, rserverCycle, rserverStart, rserverEnd)
 }

@@ -155,6 +155,16 @@ func main() {
 		}
 
 		// ------------------------------------------------------------------
+		//
+		if rcore.EntityExpRecReload([]string{"TOF", "PTC"}) == false {
+			//
+			break
+		}
+
+		//
+		log.Println("TOFOUT ", rcore.CurrentExp.TOF)
+
+		// ------------------------------------------------------------------
 		// next cycle, next time moment
 		rcore.CurrentExp.Cycle++
 		rcore.CurrentExp.Mtime += *flTimeStep

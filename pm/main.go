@@ -1,9 +1,16 @@
+// ----------------------------------------------------------------------
+// Patient Model (to be integrated in RServer)
+// Pharmacodynamic/Pharmacokinetic model for Rocuronium & Cisatracurium
+// ----------------------------------------------------------------------
+
 package main
 
 //
-import "log"
-import "flag"
-import "rcore"
+import (
+	"flag"
+	"log"
+	"rcore"
+)
 
 // ----------------------------------------------------------------------
 //
@@ -13,41 +20,42 @@ var flExpID = flag.String("E", "", "Experiment ID")
 // ----------------------------------------------------------------------
 //
 func simulateRserver(expID string) {
-  //
-  log.Println("ExpID ", expID, " starting sequence")
+	//
+	log.Println("ExpID ", expID, " starting sequence")
 
-  //
-  rcore.EntityStartSequence(expID, rserverStart)
+	//
+	rcore.EntityStartSequence(expID, rserverStart)
 
-  //
-  var _r = rcore.CurrentExp
+	//
+	var _r = rcore.CurrentExp
 
-  //
-  _r.Mtime = 0
-  _r.Cycle = 0
+	//
+	_r.Mtime = 0
+	_r.Cycle = 0
 
-  //
-  rcore.EntityEndSequence(expID, rserverEnd)
+	//
+	rcore.EntityEndSequence(expID, rserverEnd)
 }
 
 // ----------------------------------------------------------------------
 //
 func main() {
-  // --------------------------------------------------------------------
-  //
-  flag.Parse()
+	// --------------------------------------------------------------------
+	//
+	flag.Parse()
 
-  // --------------------------------------------------------------------
-  // Program works either in "server" mode
-  if *flServer == true {
-    //
-    rserverMain(); return;
-  }
+	// --------------------------------------------------------------------
+	// Program works either in "server" mode
+	if *flServer == true {
+		//
+		rserverMain()
+		return
+	}
 
-  // --------------------------------------------------------------------
-  //
-  if *flExpID != "" {
-    //
-    simulateRserver(*flExpID)
-  }
+	// --------------------------------------------------------------------
+	//
+	if *flExpID != "" {
+		//
+		simulateRserver(*flExpID)
+	}
 }
