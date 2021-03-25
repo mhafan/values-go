@@ -3,11 +3,13 @@ package main
 
 // --------------------------------------------------------------------
 // ...
-import "log"
-import "rcore"
-import "flag"
-import "time"
-import "os"
+import (
+	"flag"
+	"log"
+	"os"
+	"rcore"
+	"time"
+)
 
 // ----------------------------------------------------------------------
 //
@@ -21,128 +23,130 @@ var flTimeStep = flag.Int("t", 15, "Time step [s]")
 var flTMAX = flag.Int("T", 1000000, "Max Time [s]")
 var flCycles = flag.Int("c", 100000, "Number of cycles")
 
-
 // --------------------------------------------------------------------
 //
 func mydefs(_c *rcore.Exprec) {
-  //
-  _c.Weight = *flWeight
-  _c.Age = *flAge
+	//
+	_c.Weight = *flWeight
+	_c.Age = *flAge
 
-  //
-  _c.Drug = rcore.DrugRocuronium
+	//
+	_c.Drug = rcore.DrugRocuronium
 }
 
 // --------------------------------------------------------------------
 //
 func main() {
 	//
-  flag.Parse()
+	flag.Parse()
 
-	//
+	// name of TEST-CASE must be given
 	if *flTC == "" {
-		//
-		flag.PrintDefaults(); return
+		// print help and exit
+		flag.PrintDefaults()
+		return
 	}
 
-  // --------------------------------------------------------------------
-  // initiate the r-sysem library (sender|listener)
-  _rglobal := rcore.RServerInit()
+	// --------------------------------------------------------------------
+	// initiate the r-sysem library (sender|listener)
+	_rglobal := rcore.RServerInit()
 
-  // some errror
-  if _rglobal == nil {
-    //
-    log.Println("R-system library start failure");
-  }
+	// some errror
+	if _rglobal == nil {
+		//
+		log.Println("R-system library start failure")
+	}
 
-  // --------------------------------------------------------------------
-  // become a new follower (receiver of messages from vm.*)
-  _meFollower := rcore.NewFollower()
+	// --------------------------------------------------------------------
+	// become a new follower (receiver of messages from vm.*)
+	_meFollower := rcore.NewFollower()
 
 	// --------------------------------------------------------------------
 	// assign a new simulation experiment name
+	// format: vm.(flTC).increasedCounter
 	_expID := rcore.NewExpID(*flTC)
 
 	// create a REDIS record for that name
 	rcore.CurrentExp = rcore.MakeExpID(_expID)
 
-  // fill the record with initial data (prompt etc)
-  mydefs(rcore.CurrentExp)
+	// fill the record with initial data (prompt etc)
+	mydefs(rcore.CurrentExp)
 
-  // REDIS save, publish first msg -> START
+	// REDIS save, publish first msg -> START
 	rcore.CurrentExp.Save([]string{}, true)
 	rcore.CurrentExp.Say(rcore.CallStart)
 
 	//
 	log.Println("ExperimentID=", _expID, "; starting")
 
-  // --------------------------------------------------------------------
-  //
+	// --------------------------------------------------------------------
+	//
 	for {
-    //
-    if rcore.Global.Running == false {
-      //
-      break
-    }
-    // ------------------------------------------------------------------
-    //
-    var _r *rcore.Exprec = rcore.CurrentExp
-    var _waiting = true
+		//
+		if rcore.Global.Running == false {
+			//
+			break
+		}
+		// ------------------------------------------------------------------
+		//
+		var _r *rcore.Exprec = rcore.CurrentExp
+		var _waiting = true
 
 		// ending condition
 		if _r.Cycle > *flCycles || _r.Mtime > *flTMAX {
 			//
-			break;
+			break
 		}
 
-    //
-    log.Println("Cycle: ", rcore.CurrentExp.Cycle)
+		//
+		log.Println("Cycle: ", rcore.CurrentExp.Cycle)
 
-    // ------------------------------------------------------------------
+		// ------------------------------------------------------------------
 		// next cycle, save the record and call CNT out
-		rcore.CurrentExp.Save([]string{ "cycle", "mtime"}, false)
+		rcore.CurrentExp.Save([]string{"cycle", "mtime"}, false)
 		rcore.RPublish(_expID, rcore.CallCNT)
 
-    // ------------------------------------------------------------------
+		// ------------------------------------------------------------------
 		// waiting for the loop to go around
-    // CNT -> PUMP -> PM -> CUFF -> TCM
+		// CNT -> PUMP -> PM -> CUFF -> TCM
 		for _waiting == true {
 			//
 			select {
-				// input messages
-				case msg := <- _meFollower.Inputs:
-					// calling me, ...
-          if msg.Channel == rcore.MasterChannel {
-            //
-            rcore.EntityMasterChannel(msg)
-
-            //
-            if rcore.Global.Running == false {
-              //
-              break
-            }
-            //
-          } else {
-            //
-            if msg.Message == rcore.CallTCM {
-              //
-              _waiting = false; break
-            }
-          }
-
-        // timeout
-        case <- time.After(time.Second * 2):
+			// input messages
+			case msg := <-_meFollower.Inputs:
+				// calling me, ...
+				if msg.Channel == rcore.MasterChannel {
 					//
-					log.Println("Timeout. Ending");
+					rcore.EntityMasterChannel(msg)
 
 					//
-					os.Exit(1)
+					if rcore.Global.Running == false {
+						//
+						break
+					}
+					//
+				} else {
+					//
+					if msg.Message == rcore.CallTCM {
+						//
+						_waiting = false
+						break
+					}
+				}
+
+			// timeout
+			case <-time.After(time.Second * 2):
+				//
+				log.Println("Timeout. Ending")
+
+				//
+				os.Exit(1)
 			}
 		}
 
-    // ------------------------------------------------------------------
+		// ------------------------------------------------------------------
 		// next cycle, next time moment
-		rcore.CurrentExp.Cycle++;
+		rcore.CurrentExp.Cycle++
 		rcore.CurrentExp.Mtime += *flTimeStep
 	}
 
