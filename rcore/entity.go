@@ -4,38 +4,40 @@ package rcore
 // --------------------------------------------------------------------
 // ...
 import (
-	"sync"
+	"flag"
 	"log"
 	"os"
-	"flag"
+	"sync"
+
 	"github.com/gomodule/redigo/redis"
 )
 
 // --------------------------------------------------------------------
 //
 var Global MConn
-var err error
 
-//
+// REDIS instance for long term experimenting
 var redis_host = "pchrubym.fit.vutbr.cz"
 
-//
+// --------------------------------------------------------------------
+// hostname + AUTH passwd
 var flHostname = flag.String("h", ":6379", "REDIS hostname")
 var flAuth = flag.String("a", "", "REDIS auth password")
 
 // --------------------------------------------------------------------
-//
+// make connection
 func dial() (redis.Conn, error) {
-	//
+	// open connection OPTIONS, passwd AUTH
 	opta := redis.DialPassword(*flAuth)
 
-	//
+	// open the connection with given optiions
 	c, e := redis.Dial("tcp", *flHostname, opta)
 
-	//
+	// ...
 	if e != nil {
 		//
-		log.Println("Dial error: ", e); os.Exit(-1)
+		log.Println("Dial error: ", e)
+		os.Exit(-1)
 	}
 
 	//
@@ -43,58 +45,51 @@ func dial() (redis.Conn, error) {
 }
 
 // --------------------------------------------------------------------
-//
+// Message
 type rmsg struct {
-		Channel string
-		Message string
+	///
+	Channel string
+	Message string
 }
 
 // --------------------------------------------------------------------
-//
+// Follower is defined by its channel for receiving messages
 type Follower struct {
 	//
 	Inputs chan rmsg
 }
 
-
 // --------------------------------------------------------------------
-//
+// create a new follower and make him registered
 func NewFollower() *Follower {
 	//
-	p := newFollower()
+	p := &Follower{
+		//
+		Inputs: make(chan rmsg, 100),
+	}
 
 	//
-	if p != nil {
-		//
-		addFollower(p)
-	}
+	Global._followers.Lock()
+	Global.followers = append(Global.followers, p)
+	Global._followers.Unlock()
 
 	//
 	return p
 }
 
-//
-func newFollower() *Follower {
-	//
-	f := Follower{}
-	f.Inputs = make(chan rmsg, 100)
-
-	//
-	return &f
-}
-
 // --------------------------------------------------------------------
-//
+// Global singleton for REDIS connection and listening
 type MConn struct {
-	//
+	// sockets for output and input
+	// (the input socket is a message subscriber)
 	handleOUT redis.Conn
-	handleIN redis.Conn
+	handleIN  redis.Conn
 
-	//
-	followers [] *Follower
+	// listening
+	followers  []*Follower
 	_followers sync.Mutex
 
-	//
+	// channel for publishing
 	topublish chan rmsg
 
 	//
@@ -102,86 +97,78 @@ type MConn struct {
 }
 
 // --------------------------------------------------------------------
-//
-func addFollower(who *Follower) {
-	//
-	Global._followers.Lock()
-
-	//
-	Global.followers = append(Global.followers, who)
-
-	//
-	Global._followers.Unlock()
-}
-
-// --------------------------------------------------------------------
-//
+// thread that publishes messages
 func sender() {
 	//
 	for {
-		//
-		msg, _ := <- Global.topublish
+		// get a message from the channel
+		msg, _ := <-Global.topublish
 
-		//
+		// send it
 		Global.handleOUT.Send("publish", msg.Channel, msg.Message)
 		Global.handleOUT.Flush()
 	}
 }
 
 // --------------------------------------------------------------------
-//
+// listening thread
 func listener() {
 	//
 	psc := redis.PubSubConn{Conn: Global.handleIN}
 
-	//
+	// set your subscriptions
 	psc.PSubscribe("vm.*")
 
 	//
 	for {
+		// wait & receive a message
+		switch v := psc.Receive().(type) {
+		//
+		case redis.Message:
+			// construct a message
+			_rmsg := rmsg{v.Channel, string(v.Data)}
+
 			//
-	    switch v := psc.Receive().(type) {
-	    case redis.Message:
-					//
-					_rmsg := rmsg{v.Channel, string(v.Data)}
+			Global._followers.Lock()
 
-					//
-					Global._followers.Lock()
+			// ... and distribute it among the followers
+			for _, v := range Global.followers {
+				// ...
+				v.Inputs <- _rmsg
+			}
 
-					//
-					for _, v := range Global.followers {
-						//
-						v.Inputs <- _rmsg
-					}
+			//
+			Global._followers.Unlock()
+		//
+		case redis.Subscription:
+			//
 
-					//
-					Global._followers.Unlock()
-					//
-	    case redis.Subscription:
-				;
-	    case error:
-	        return
-	    }
+		case error:
+			return
+		}
 	}
 }
 
-
-
 // --------------------------------------------------------------------
-//
+// main system procedure. Initialization of the core.
+// --------------------------------------------------------------------
 func RServerInit() *MConn {
+	// ----------------------------------------------------------------
 	//
-	Global.handleOUT, err = dial()
-	Global.handleIN, err = dial()
+	var err, err2 error
 
-	//
+	// open the sockets
+	Global.handleOUT, err = dial()
+	Global.handleIN, err2 = dial()
+
+	// make published-messages channel
 	Global.topublish = make(chan rmsg, 100)
 
-	//
+	// ...
 	Global.Running = true
 
 	//
-	if err != nil {
+	if err != nil || err2 != nil {
 		//
 		log.Println(err)
 
@@ -189,10 +176,12 @@ func RServerInit() *MConn {
 		return nil
 	}
 
-	//
+	// ----------------------------------------------------------------
+	// start threads....
 	go sender()
 	go listener()
 
+	// ----------------------------------------------------------------
 	//
 	return &Global
 }
@@ -200,14 +189,13 @@ func RServerInit() *MConn {
 // --------------------------------------------------------------------
 //
 func RPublish(channel, message string) {
-	//
-	Global.topublish <- rmsg{ channel, message }
+	// ...
+	Global.topublish <- rmsg{channel, message}
 }
-
 
 // --------------------------------------------------------------------
 //
-func EntityExpRecReload(keys [] string) bool {
+func EntityExpRecReload(keys []string) bool {
 	//
 	if CurrentExp == nil {
 		//
@@ -221,10 +209,9 @@ func EntityExpRecReload(keys [] string) bool {
 	return CurrentExp.Load(keys, len(keys) == 0)
 }
 
-
 // ----------------------------------------------------------------------
 //
-func EntityStartSequence(expIDChannel string, whatStart func ()) {
+func EntityStartSequence(expIDChannel string, whatStart func()) {
 	//
 	log.Println("New experiment started: ", expIDChannel)
 
@@ -240,7 +227,7 @@ func EntityStartSequence(expIDChannel string, whatStart func ()) {
 
 // ----------------------------------------------------------------------
 //
-func EntityEndSequence(expIDChannel string, whatEnd func ()) {
+func EntityEndSequence(expIDChannel string, whatEnd func()) {
 	////
 	if CurrentExp != nil {
 		//
@@ -259,7 +246,7 @@ func EntityEndSequence(expIDChannel string, whatEnd func ()) {
 
 // ----------------------------------------------------------------------
 //
-func EntityRoundSequence(expIDChannel string, what func ()) {
+func EntityRoundSequence(expIDChannel string, what func()) {
 	//
 	if CurrentExp != nil {
 		//
@@ -279,36 +266,37 @@ func EntityMasterChannel(msg rmsg) {
 		//
 		Global.Running = false
 		//
-		return;
+		return
 	}
 }
 
 // ----------------------------------------------------------------------
 //
-func EntityCore(myTurn string, what, whatStart, whatEnd func ()) {
-  // --------------------------------------------------------------------
-  // initiate the r-sysem library (sender|listener)
-  _rglobal := RServerInit()
+func EntityCore(myTurn string, what, whatStart, whatEnd func()) {
+	// --------------------------------------------------------------------
+	// initiate the r-sysem library (sender|listener)
+	_rglobal := RServerInit()
 
-  // some errror
-  if _rglobal == nil {
-    //
-    log.Println("R-system library start failure"); os.Exit(1)
-  }
+	// some errror
+	if _rglobal == nil {
+		//
+		log.Println("R-system library start failure")
+		os.Exit(1)
+	}
 
-  // --------------------------------------------------------------------
-  // become a new follower (receiver of messages from vm.*)
-  _meFollower := NewFollower()
+	// --------------------------------------------------------------------
+	// become a new follower (receiver of messages from vm.*)
+	_meFollower := NewFollower()
 
 	//
 	defer Global.handleIN.Close()
-	defer	Global.handleOUT.Close()
+	defer Global.handleOUT.Close()
 
-  // --------------------------------------------------------------------
-  //
+	// --------------------------------------------------------------------
+	//
 	for Global.Running == true {
-    //
-		msg := <- _meFollower.Inputs
+		//
+		msg := <-_meFollower.Inputs
 
 		//
 		if msg.Channel == MasterChannel {
@@ -316,25 +304,25 @@ func EntityCore(myTurn string, what, whatStart, whatEnd func ()) {
 			EntityMasterChannel(msg)
 		} else {
 			//
-	    switch msg.Message {
-	      //
-	      case CallStart:
-	        //
-					EntityStartSequence(msg.Channel, whatStart)
+			switch msg.Message {
+			//
+			case CallStart:
+				//
+				EntityStartSequence(msg.Channel, whatStart)
 
-	      //
-	      case CallEnd:
-	        //
-					EntityEndSequence(msg.Channel, whatEnd)
+			//
+			case CallEnd:
+				//
+				EntityEndSequence(msg.Channel, whatEnd)
 
-	      //
-	    case myTurn:
-	        //
-					EntityRoundSequence(msg.Channel, what)
+				//
+			case myTurn:
+				//
+				EntityRoundSequence(msg.Channel, what)
 
-	      default:
-	        ;
-	    }
+			default:
+
+			}
 		}
 	}
 }

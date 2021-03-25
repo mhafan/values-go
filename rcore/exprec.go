@@ -16,7 +16,9 @@ const (
 	CallStart = "START"
 	// end of the current experiment
 	CallEnd = "END"
-	//
+
+	// Simulation loop calls
+	// TCM -> CNT -> PUMP -> PATMOD -> SENSOR -> TCM
 	CallCNT    = "CNT"
 	CallPump   = "PUMP"
 	CallPatMod = "PATMOD"
@@ -191,9 +193,11 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	if f("drug") {
 		r.Drug, _ = redis.String(_s.Do("hget", r.Varname, "drug"))
 	}
+
 	if f("bolus") {
 		r.Bolus, _ = redis.Int(_s.Do("hget", r.Varname, "bolus"))
 	}
+
 	if f("infusion") {
 		r.Infusion, _ = redis.Int(_s.Do("hget", r.Varname, "infusion"))
 	}
@@ -202,6 +206,7 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	if f("weight") {
 		r.Weight, _ = redis.Int(_s.Do("hget", r.Varname, "weight"))
 	}
+
 	if f("age") {
 		r.Age, _ = redis.Int(_s.Do("hget", r.Varname, "age"))
 	}
@@ -209,6 +214,7 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	if f("mtime") {
 		r.Mtime, _ = redis.Int(_s.Do("hget", r.Varname, "mtime"))
 	}
+
 	if f("cycle") {
 		r.Cycle, _ = redis.Int(_s.Do("hget", r.Varname, "cycle"))
 	}
@@ -216,15 +222,19 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	if f("unitVd") {
 		r.UnitVd, _ = redis.Int(_s.Do("hget", r.Varname, "unitVd"))
 	}
+
 	if f("absoluteVd") {
 		r.AbsoluteVd, _ = redis.Int(_s.Do("hget", r.Varname, "absoluteVd"))
 	}
+
 	if f("targetTOF") {
 		r.TargetTOF, _ = redis.Int(_s.Do("hget", r.Varname, "targetTOF"))
 	}
+
 	if f("targetPTC") {
 		r.TargetPTC, _ = redis.Int(_s.Do("hget", r.Varname, "targetPTC"))
 	}
+
 	if f("EC50") {
 		r.EC50, _ = redis.Float64(_s.Do("hget", r.Varname, "EC50"))
 	}
