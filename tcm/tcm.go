@@ -44,6 +44,8 @@ func main() {
 	if *flTC == "" {
 		// print help and exit
 		flag.PrintDefaults()
+
+		//
 		return
 	}
 
@@ -74,26 +76,26 @@ func main() {
 
 	// REDIS save, publish first msg -> START
 	rcore.CurrentExp.Save([]string{}, true)
+	// START !!!
+	// - all participants (CNT, PUMP, PM, SENSOR) are supposed to
+	// get ready for this experiment
 	rcore.CurrentExp.Say(rcore.CallStart)
 
 	//
 	log.Println("ExperimentID=", _expID, "; starting")
 
 	// --------------------------------------------------------------------
-	//
+	// The experiment goes in cycles with a predefined number of iterations
 	for {
-		//
+		// if the experiment was interrupted (...)
 		if rcore.Global.Running == false {
 			//
 			break
 		}
-		// ------------------------------------------------------------------
-		//
-		var _r *rcore.Exprec = rcore.CurrentExp
-		var _waiting = true
 
+		// ------------------------------------------------------------------
 		// ending condition
-		if _r.Cycle > *flCycles || _r.Mtime > *flTMAX {
+		if rcore.CurrentExp.Cycle > *flCycles || rcore.CurrentExp.Mtime > *flTMAX {
 			//
 			break
 		}
@@ -104,11 +106,18 @@ func main() {
 		// ------------------------------------------------------------------
 		// next cycle, save the record and call CNT out
 		rcore.CurrentExp.Save([]string{"cycle", "mtime"}, false)
-		rcore.RPublish(_expID, rcore.CallCNT)
+		rcore.CurrentExp.Say(rcore.CallCNT)
+
+		// ------------------------------------------------------------------
+		//
+		var _waiting = true
 
 		// ------------------------------------------------------------------
 		// waiting for the loop to go around
 		// CNT -> PUMP -> PM -> CUFF -> TCM
+		// ------------------------------------------------------------------
+		// TCM passed the token to CNT. Now TCM needs to wait
+		// until the loop
 		for _waiting == true {
 			//
 			select {
