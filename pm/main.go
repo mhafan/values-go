@@ -1,51 +1,53 @@
 package main
 
 //
-import "fmt"
+import "log"
 import "flag"
+import "rcore"
 
 // ----------------------------------------------------------------------
 //
 var flServer = flag.Bool("s", false, "Run in server mode")
+var flExpID = flag.String("E", "", "Experiment ID")
 
+// ----------------------------------------------------------------------
+//
+func simulateRserver(expID string) {
+  //
+  log.Println("ExpID ", expID, " starting sequence")
+
+  //
+  rcore.EntityStartSequence(expID, rserverStart)
+
+  //
+  var _r = rcore.CurrentExp
+
+  //
+  _r.Mtime = 0
+  _r.Cycle = 0
+
+  //
+  rcore.EntityEndSequence(expID, rserverEnd)
+}
 
 // ----------------------------------------------------------------------
 //
 func main() {
-  //
-  fmt.Println("patmod in golang")
-
+  // --------------------------------------------------------------------
   //
   flag.Parse()
 
-  //
+  // --------------------------------------------------------------------
+  // Program works either in "server" mode
   if *flServer == true {
     //
     rserverMain(); return;
   }
 
+  // --------------------------------------------------------------------
   //
-  patient := NewPatient()
-
-  //
-  patient.setDefaults()
-  patient.weightKG = 100
-
-  //
-  ss0 := emptySIMS(patient)
-  ss0.bolus = volume{20, mL}
-
-  //
-  var ns SIMS = ss0
-
-  for ns.time < 100 {
+  if *flExpID != "" {
     //
-    ns.rocSimStep()
-
-    //
-    fmt.Println(ns.time, " ", ns.rocs.yROC, " ", ns.rocs.TOF0)
-
-    //
-    ns = ns.next1S()
+    simulateRserver(*flExpID)
   }
 }

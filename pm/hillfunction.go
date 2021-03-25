@@ -2,27 +2,28 @@ package main
 
 //
 import "math"
+import "rcore"
 
 // ----------------------------------------------------------------------
 // Hill function config
 type Hill struct {
   //
-  emax  double
+  emax  rcore.Double
   //
-  ec50  double
-  gamma double
+  ec50  rcore.Double
+  gamma rcore.Double
 }
 
 // ----------------------------------------------------------------------
 //
 type Bounds struct {
-  bmin  double
-  bmax  double
+  bmin  rcore.Double
+  bmax  rcore.Double
 }
 
 // ----------------------------------------------------------------------
 // computed effect
-func (h Hill) value(inp double) double {
+func (h Hill) value(inp rcore.Double) rcore.Double {
   //
   ip := math.Pow(inp, h.gamma)
   ep := math.Pow(h.ec50, h.gamma)
@@ -35,7 +36,7 @@ func (h Hill) value(inp double) double {
 }
 
 //
-func (b Bounds) bound(v double) double {
+func (b Bounds) bound(v rcore.Double) rcore.Double {
   //
   return math.Min(math.Max(v, b.bmin), b.bmax)
 }

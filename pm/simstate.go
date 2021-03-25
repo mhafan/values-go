@@ -1,8 +1,10 @@
 package main
 
+import "rcore"
+
 // ----------------------------------------------------------------------
 // 3 compartment model
-type COMP_X  [3+1] double
+type COMP_X  [3+1] rcore.Double
 
 //
 var _TOFbounds = Bounds{0, 100}
@@ -16,7 +18,7 @@ type ROCS struct {
   rocHill   Hill
 
   //
-  effect    double
+  effect    rcore.Double
   TOF0      int
 }
 
@@ -37,44 +39,44 @@ type SIMS struct {
 
   // --------------------------------------------------------------------
   // inputs
-  bolus     volume
-  infusion  volume
+  bolus     rcore.Volume
+  infusion  rcore.Volume
 }
 
 
 // ----------------------------------------------------------------------
 // time(0) zero simstate constructor
-func emptySIMS(pat *Patient) SIMS {
+func emptySIMS(pat *Patient) *SIMS {
   //
-  return SIMS {
+  return &SIMS {
     //
     pat, 0,
     //
     ROCS { COMP_X{}, rocDefHill(), 0, 0 },
     // bolus & infusion
-    volume_0(), volume_0() }
+    rcore.Volume_0(), rcore.Volume_0() }
 }
 
 
 // ----------------------------------------------------------------------
 // next state by shifting time
-func (from SIMS) nextState(at int) SIMS {
+func (from *SIMS) nextState(at int) *SIMS {
   // ... copy ...
-  ns := from
+  ns := *from
 
   // shift time
   ns.time = at
   // reset inputs
-  ns.bolus = volume_0()
-  ns.infusion = volume_0()
+  ns.bolus = rcore.Volume_0()
+  ns.infusion = rcore.Volume_0()
 
   //
-  return ns
+  return &ns
 }
 
 // ----------------------------------------------------------------------
 //
-func (from SIMS) next1S() SIMS {
+func (from *SIMS) next1S() *SIMS {
   //
   return from.nextState(from.time + 1)
 }

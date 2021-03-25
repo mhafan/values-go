@@ -1,17 +1,6 @@
 package main
 
-// ----------------------------------------------------------------------
-//
-func rocWSOL(w weight) volume {
-  //
-  return volume{ w.in(mg).value / 10.0, mL }
-}
-
-//
-func rocSOLW(v volume) weight {
-  //
-  return weight{ v.in(mL).value * 10.0, mg }
-}
+import "rcore"
 
 //
 func rocDefHill() Hill {
@@ -32,7 +21,7 @@ const (
 
 // ----------------------------------------------------------------------
 //
-func rocInputs(y COMP_X, infConc double) COMP_X {
+func rocInputs(y COMP_X, infConc rcore.Double) COMP_X {
   //
   var out COMP_X
 
@@ -50,7 +39,7 @@ func rocInputs(y COMP_X, infConc double) COMP_X {
 
 // ----------------------------------------------------------------------
 //
-func rocSimStep1H(yin COMP_X, infConc double) COMP_X {
+func rocSimStep1H(yin COMP_X, infConc rcore.Double) COMP_X {
   //
   f := rocInputs(yin, infConc)
 
@@ -72,29 +61,34 @@ func rocSimStep1H(yin COMP_X, infConc double) COMP_X {
 // PK/PD Model for Rocuronium
 // ----------------------------------------------------------------------
 func (ss *SIMS) rocSimStep() {
-  //
+  // Volume of distribution
   Vd := ss.patient.Vc_roc()
+
+  // eventual infusion input
   ic := 0.0
 
   // [ml/hr] => effective weight / hr => per s =>
-  if ss.infusion.value > 0.0 {
+  if ss.infusion.Value > 0.0 {
     // [ug/hr]
-    inWeightHour := rocSOLW(ss.infusion).in(ug)
+    inWeightHour := rcore.RocSOLW(ss.infusion).In(rcore.Ug)
 
     // [ug/s]
-    inWeightS := inWeightHour.value / 3600.0
+    inWeightS := inWeightHour.Value / 3600.0
 
     //
-    ic = inWeightS / Vd.in(mL).value
+    ic = inWeightS / Vd.In(rcore.ML).Value
   }
 
   //
-  ss.rocs.yROC = rocSimStep1H(ss.rocs.yROC, ic)
+  if ss.time > 0 {
+    //
+    ss.rocs.yROC = rocSimStep1H(ss.rocs.yROC, ic)
+  }
 
   //
-  if ss.bolus.value > 0.0 {
+  if ss.bolus.Value > 0.0 {
     //
-    ss.rocs.yROC[1] += rocSOLW(ss.bolus).in(ug).value / Vd.in(mL).value;
+    ss.rocs.yROC[1] += rcore.RocSOLW(ss.bolus).In(rcore.Ug).Value / Vd.In(rcore.ML).Value;
   }
 
   //

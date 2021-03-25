@@ -1,13 +1,14 @@
 package main
 
+import "rcore"
 
 // ----------------------------------------------------------------------
 //
 type PatientROC struct {
   // [mL/kg]
-  Vd_kg     double
+  Vd_kg     rcore.Double
   // [ug/mL]
-  ec50      double
+  ec50      rcore.Double
 }
 
 //
@@ -21,7 +22,7 @@ func PatientROC_def() PatientROC {
 // ----------------------------------------------------------------------
 type Patient struct {
   // [kg]
-  weightKG  double
+  weightKG  rcore.Double
 
   //
   age       int
@@ -59,4 +60,7 @@ const (
 
 // ----------------------------------------------------------------------
 //
-func (p *Patient) Vc_roc() volume { return volume{ 38.0 * p.weightKG, mL }}
+func (p *Patient) Vc_roc() rcore.Volume {
+  //
+  return rcore.Volume{ 38.0 * p.weightKG, rcore.ML }
+}

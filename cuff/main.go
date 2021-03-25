@@ -1,32 +1,34 @@
 package main
+
 //
-import "fmt"
-import "os"
 import "flag"
 import "rcore"
 
 // ----------------------------------------------------------------------
-//
-var flServer = flag.Bool("s", false, "Run in server mode")
+// CUF Behavior:
+// 1) read TOF values set by PatMod
+// 2) add some noise if configured
+func cuffMain() {
+  //
+}
 
 // ----------------------------------------------------------------------
 //
 func main() {
+  // --------------------------------------------------------------------
   //
   flag.Parse()
 
-  //
-  if *flServer == false {
-    //
-    fmt.Println("run me in -s mode, por favor...")
-
-    //
-    os.Exit(2)
-  }
-
-  //
+  // --------------------------------------------------------------------
+  // listening on channels vm.*
+  // - standard behavior on start/end
+  // - SENSOR -> my action
   rcore.EntityCore(rcore.CallSensor, func() {
+    // do your job
+    cuffMain()
+
+    // next in the loop: TCM
+    rcore.CurrentExp.Say(rcore.CallTCM)
     //
-    rcore.CurrentExp.Say(rcore.CallCNT)
-  })
+  }, func() {}, func() {})
 }

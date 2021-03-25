@@ -4,23 +4,42 @@ package rcore
 // --------------------------------------------------------------------
 // ...
 import (
-	"fmt"
 	"sync"
 	"log"
 	"os"
+	"flag"
 	"github.com/gomodule/redigo/redis"
 )
 
 // --------------------------------------------------------------------
 //
-var global MConn
+var Global MConn
 var err error
+
+//
+var redis_host = "pchrubym.fit.vutbr.cz"
+
+//
+var flHostname = flag.String("h", ":6379", "REDIS hostname")
+var flAuth = flag.String("a", "", "REDIS auth password")
 
 // --------------------------------------------------------------------
 //
 func dial() (redis.Conn, error) {
 	//
-	return redis.Dial("tcp", ":6379")
+	opta := redis.DialPassword(*flAuth)
+
+	//
+	c, e := redis.Dial("tcp", *flHostname, opta)
+
+	//
+	if e != nil {
+		//
+		log.Println("Dial error: ", e); os.Exit(-1)
+	}
+
+	//
+	return c, e
 }
 
 // --------------------------------------------------------------------
@@ -77,19 +96,22 @@ type MConn struct {
 
 	//
 	topublish chan rmsg
+
+	//
+	Running bool
 }
 
 // --------------------------------------------------------------------
 //
 func addFollower(who *Follower) {
 	//
-	global._followers.Lock()
+	Global._followers.Lock()
 
 	//
-	global.followers = append(global.followers, who)
+	Global.followers = append(Global.followers, who)
 
 	//
-	global._followers.Unlock()
+	Global._followers.Unlock()
 }
 
 // --------------------------------------------------------------------
@@ -98,11 +120,11 @@ func sender() {
 	//
 	for {
 		//
-		msg, _ := <- global.topublish
+		msg, _ := <- Global.topublish
 
 		//
-		global.handleOUT.Send("publish", msg.Channel, msg.Message)
-		global.handleOUT.Flush()
+		Global.handleOUT.Send("publish", msg.Channel, msg.Message)
+		Global.handleOUT.Flush()
 	}
 }
 
@@ -110,7 +132,7 @@ func sender() {
 //
 func listener() {
 	//
-	psc := redis.PubSubConn{Conn: global.handleIN}
+	psc := redis.PubSubConn{Conn: Global.handleIN}
 
 	//
 	psc.PSubscribe("vm.*")
@@ -124,16 +146,16 @@ func listener() {
 					_rmsg := rmsg{v.Channel, string(v.Data)}
 
 					//
-					global._followers.Lock()
+					Global._followers.Lock()
 
 					//
-					for _, v := range global.followers {
+					for _, v := range Global.followers {
 						//
 						v.Inputs <- _rmsg
 					}
 
 					//
-					global._followers.Unlock()
+					Global._followers.Unlock()
 					//
 	    case redis.Subscription:
 				;
@@ -144,32 +166,19 @@ func listener() {
 }
 
 
-// --------------------------------------------------------------------
-//
-func demo() {
-	//
-	me := newFollower(); addFollower(me)
-
-	//
-	for {
-		//
-		msg := <- me.Inputs
-
-		//
-		fmt.Println("Nekdo nam pise: ", msg.Channel, " ", msg.Message)
-	}
-}
-
 
 // --------------------------------------------------------------------
 //
 func RServerInit() *MConn {
 	//
-	global.handleOUT, err = dial()
-	global.handleIN, err = dial()
+	Global.handleOUT, err = dial()
+	Global.handleIN, err = dial()
 
 	//
-	global.topublish = make(chan rmsg, 100)
+	Global.topublish = make(chan rmsg, 100)
+
+	//
+	Global.Running = true
 
 	//
 	if err != nil {
@@ -185,19 +194,98 @@ func RServerInit() *MConn {
 	go listener()
 
 	//
-	return &global
+	return &Global
 }
 
 // --------------------------------------------------------------------
 //
 func RPublish(channel, message string) {
 	//
-	global.topublish <- rmsg{ channel, message }
+	Global.topublish <- rmsg{ channel, message }
+}
+
+
+// --------------------------------------------------------------------
+//
+func EntityExpRecReload(keys [] string) bool {
+	//
+	if CurrentExp == nil {
+		//
+		log.Println("EntityExpRecReload() failed")
+
+		//
+		return false
+	}
+
+	//
+	return CurrentExp.Load(keys, len(keys) == 0)
+}
+
+
+// ----------------------------------------------------------------------
+//
+func EntityStartSequence(expIDChannel string, whatStart func ()) {
+	//
+	log.Println("New experiment started: ", expIDChannel)
+
+	//
+	CurrentExp = MakeExpID(expIDChannel)
+
+	//
+	CurrentExp.Load([]string{}, true)
+
+	//
+	whatStart()
 }
 
 // ----------------------------------------------------------------------
 //
-func EntityCore(myTurn string, what func ()) {
+func EntityEndSequence(expIDChannel string, whatEnd func ()) {
+	////
+	if CurrentExp != nil {
+		//
+		if CurrentExp.Varname == expIDChannel {
+			//
+			log.Println("Experiment ended: ", expIDChannel)
+
+			//
+			whatEnd()
+		}
+
+		//
+		CurrentExp = nil
+	}
+}
+
+// ----------------------------------------------------------------------
+//
+func EntityRoundSequence(expIDChannel string, what func ()) {
+	//
+	if CurrentExp != nil {
+		//
+		if CurrentExp.Varname == expIDChannel {
+			//
+			what()
+		}
+	}
+}
+
+// ----------------------------------------------------------------------
+//
+func EntityMasterChannel(msg rmsg) {
+	//
+	switch msg.Message {
+	case "quit":
+		//
+		Global.Running = false
+		//
+		return;
+	}
+}
+
+// ----------------------------------------------------------------------
+//
+func EntityCore(myTurn string, what, whatStart, whatEnd func ()) {
   // --------------------------------------------------------------------
   // initiate the r-sysem library (sender|listener)
   _rglobal := RServerInit()
@@ -212,89 +300,41 @@ func EntityCore(myTurn string, what func ()) {
   // become a new follower (receiver of messages from vm.*)
   _meFollower := NewFollower()
 
+	//
+	defer Global.handleIN.Close()
+	defer	Global.handleOUT.Close()
+
   // --------------------------------------------------------------------
   //
-	for {
+	for Global.Running == true {
     //
 		msg := <- _meFollower.Inputs
 
-    //
-    switch msg.Message {
-      //
-      case CallStart:
-        //
-        log.Println("New experiment started: ", msg.Channel)
-        CurrentExp = MakeExpID(msg.Channel)
-
-      //
-      case CallEnd:
-        //
-        if CurrentExp != nil {
-          //
-          if CurrentExp.Varname == msg.Channel {
-            //
-            log.Println("Experiment ended: ", msg.Channel)
-            CurrentExp = nil
-          }
-        }
-
-      //
-    case myTurn:
-        //
-        if CurrentExp != nil {
-          //
-          if CurrentExp.Varname == msg.Channel {
-            //
-            what()
-          }
-        }
-
-      default:
-        ;
-    }
-	}
-}
-
-// --------------------------------------------------------------------
-//
-func mainRCore() {
-	//
-	global.handleOUT, err = dial()
-	global.handleIN, err = dial()
-
-	//
-	global.topublish = make(chan rmsg, 100)
-
-	//
-	if err != nil {
 		//
-		fmt.Println(err)
+		if msg.Channel == MasterChannel {
+			//
+			EntityMasterChannel(msg)
+		} else {
+			//
+	    switch msg.Message {
+	      //
+	      case CallStart:
+	        //
+					EntityStartSequence(msg.Channel, whatStart)
 
-		//
-		return
+	      //
+	      case CallEnd:
+	        //
+					EntityEndSequence(msg.Channel, whatEnd)
+
+	      //
+	    case myTurn:
+	        //
+					EntityRoundSequence(msg.Channel, what)
+
+	      default:
+	        ;
+	    }
+		}
 	}
-
-	//
-	defer global.handleIN.Close()
-	defer	global.handleOUT.Close()
-
-	//
-	//go valuesMedicalRoo()
-	/*
-	c.Do("SET", "k1", 1)
-	n, _ := redis.Int(c.Do("GET", "k1"))
-	fmt.Printf("%#v\n", n)
-	n, _ = redis.Int(c.Do("INCR", "k1"))
-	fmt.Printf("%#v\n", n)
-	*/
-
-	//
-	go sender()
-	go listener()
-	go valuesMedicalRoot()
-
-	//
-	demo()
-
-	//
 }

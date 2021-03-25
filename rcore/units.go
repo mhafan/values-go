@@ -1,11 +1,11 @@
-package main
+package rcore
 
 
-type double = float64
+type Double = float64
 
 // ----------------------------------------------------------------------
 //
-func conv(inval double, inunit int, outunit int) double {
+func conv(inval Double, inunit int, outunit int) Double {
   //
   for inunit != outunit {
     //
@@ -22,66 +22,75 @@ func conv(inval double, inunit int, outunit int) double {
 
 // ----------------------------------------------------------------------
 //
-type weight struct {
+type Weight struct {
   //
-  value double
-  unit int
+  Value Double
+  Unit int
 }
 
 // ----------------------------------------------------------------------
 //
 const (
-  kg= 1
-  g = 0
-  mg= -1
-  ug= -2
-  ng= -3
+  Kg= 1
+  G = 0
+  Mg= -1
+  Ug= -2
+  Ng= -3
 )
 
 // ----------------------------------------------------------------------
 //
-type volume struct {
+type Volume struct {
   //
-  value double
-  unit int
+  Value Double
+  Unit int
 }
 
 // ----------------------------------------------------------------------
 //
 const (
   L = 0
-  mL= -1
-  uL= -2
-  nL= -3
+  ML= -1
+  UL= -2
+  NL= -3
 )
 
+
 // ----------------------------------------------------------------------
 //
-type conc struct {
+func _gg(val Double) Weight { return Weight{val, 0} }
+func _mg(val Double) Weight { return Weight{val, -1} }
+func _ug(val Double) Weight { return Weight{val, -2} }
+func _ng(val Double) Weight { return Weight{val, -3} }
+
+// ----------------------------------------------------------------------
+//
+func (w Weight) In(outunit int) Weight {
   //
+  return Weight{ conv(w.Value, w.Unit, outunit), outunit }
 }
 
 // ----------------------------------------------------------------------
 //
-func _gg(val double) weight { return weight{val, 0} }
-func _mg(val double) weight { return weight{val, -1} }
-func _ug(val double) weight { return weight{val, -2} }
-func _ng(val double) weight { return weight{val, -3} }
-
-// ----------------------------------------------------------------------
-//
-func (w weight) in(outunit int) weight {
+func (v Volume) In(outunit int) Volume {
   //
-  return weight{ conv(w.value, w.unit, outunit), outunit }
-}
-
-// ----------------------------------------------------------------------
-//
-func (v volume) in(outunit int) volume {
-  //
-  return volume{ conv(v.value, v.unit, outunit), outunit }
+  return Volume{ conv(v.Value, v.Unit, outunit), outunit }
 }
 
 //
-func volume_0() volume { return volume{0, mL} }
-func weight_0() weight { return weight{0, mL} }
+func Volume_0() Volume { return Volume{0, ML} }
+func Weight_0() Weight { return Weight{0, ML} }
+
+
+// ----------------------------------------------------------------------
+//
+func RocWSOL(w Weight) Volume {
+  //
+  return Volume{ w.In(Mg).Value / 10.0, ML }
+}
+
+//
+func RocSOLW(v Volume) Weight {
+  //
+  return Weight{ v.In(ML).Value * 10.0, Mg }
+}

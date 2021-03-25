@@ -7,67 +7,104 @@ package main
 import "rcore"
 import "log"
 
-// ----------------------------------------------------------------------
 //
-func rserverCycle() {
-  //
-  log.Println("PM; cycle")
+var rpatient *Patient = nil
+var rsims *SIMS = nil
+
+// ----------------------------------------------------------------------
+// rcore.Exprec transger to SIMS (patmod internal data struct)
+func (r *SIMS) updateFrom(e *rcore.Exprec) {
+  // patient info
+  r.patient.weightKG = rcore.Double(e.Weight)
+  r.patient.age = e.Age
+  r.patient.sex = sexMale
+  // TODO: Vd_kg, ec50
+  // r.patient.rocCFG
 
   //
-  rcore.CurrentExp.Say(rcore.CallSensor)
+  r.time = e.Mtime
+
+  //
+  r.bolus = rcore.Volume { rcore.Double(e.Bolus), rcore.ML }
+  r.infusion = rcore.Volume_0()
 }
+
+// ----------------------------------------------------------------------
+// For every cycle of distributed simulation.
+func rserverCycle() {
+  //
+  tol := []string { "mtime", "cycle", "bolus", "infusion" }
+
+  // --------------------------------------------------------------------
+  // load Redis record
+  if rcore.EntityExpRecReload(tol) == false {
+    //
+    panic("REDIS record not found")
+  }
+
+  // ...
+  var _c = rcore.CurrentExp
+
+  // --------------------------------------------------------------------
+  // REDIS record -> SIMS (patmod simulation state)
+  rsims.updateFrom(_c)
+
+  //
+  log.Println("PM; cycle: ", _c.Cycle, "mtime", _c.Mtime,
+      "rtime", rsims.time, "bolus ", _c.Bolus, " ", rsims.bolus)
+
+  // --------------------------------------------------------------------
+  // reach Mtime in 1s simulation steps
+  for rsims.time <= _c.Mtime {
+    // h = 1s, continuous simulation step
+    rsims.rocSimStep()
+
+    //
+    log.Println(rsims.time, " ", rsims.rocs.yROC, " ", rsims.rocs.TOF0)
+
+    // +1s
+    rsims = rsims.next1S();
+
+    //
+    if rsims.time == _c.Mtime { break }
+  }
+
+  //
+  _c.Say(rcore.CallSensor)
+}
+
+// ----------------------------------------------------------------------
+//
+func rserverStart() {
+  //
+  rpatient = NewPatient()
+
+  //
+  rpatient.setDefaults()
+  rpatient.weightKG = rcore.Double(rcore.CurrentExp.Weight)
+
+  //
+  rsims = emptySIMS(rpatient)
+
+  //
+  log.Println("Starting new patient: ", rsims)
+}
+
+// ----------------------------------------------------------------------
+//
+func rserverEnd() {
+  //
+  rpatient = nil
+  rsims = nil
+
+  //
+  log.Println("Ending the experiment")
+}
+
 
 // ----------------------------------------------------------------------
 // main function (called from main() when arg is -s)
 func rserverMain() {
-  // --------------------------------------------------------------------
-  // initiate the r-sysem library (sender|listener)
-  _rglobal := rcore.RServerInit()
-
-  // some errror
-  if _rglobal == nil {
-    //
-    log.Println("PM; R-system library start failure");
-  }
-
-  // --------------------------------------------------------------------
-  // become a new follower (receiver of messages from vm.*)
-  _meFollower := rcore.NewFollower()
-
-
-  // --------------------------------------------------------------------
   //
-	for {
-		//
-		msg := <- _meFollower.Inputs
-
-    //
-    switch msg.Message {
-      //
-      case rcore.CallStart:
-        //
-        log.Println("New experiment started: ", msg.Channel)
-        rcore.CurrentExp = rcore.MakeExpID(msg.Channel)
-
-      //
-      case rcore.CallEnd:
-        //
-        if rcore.CurrentExp != nil {
-          //
-          if rcore.CurrentExp.Varname == msg.Channel {
-            //
-            log.Println("Experiment ended: ", msg.Channel)
-            rcore.CurrentExp = nil
-          }
-        }
-
-      //
-      case rcore.CallPatMod:
-        //
-        if rcore.CurrentExp != nil { rserverCycle() }
-
-      default:
-        ;
-    }
-	}
+  rcore.EntityCore(rcore.CallPatMod, rserverCycle, rserverStart, rserverEnd);
 }
