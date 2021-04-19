@@ -39,27 +39,65 @@ const (
 // --------------------------------------------------------------------
 // to be mirrored at REDIS
 type Exprec struct {
-	//
+	// ----------------------------------------------------------------
+	// e.g. vm.someTestCase.123
+	// set by TCM
 	Varname string
 
-	//
-	Drug     string
-	Bolus    int
+	// ----------------------------------------------------------------
+	// Experiment definition: (set by TCM)
+	// MUST: DrugRocuronium | DrugCisatracurium
+	Drug string
+	// MUST: [kg], to compute Vd
+	Weight int
+	// for future use
+	Age int
+	// for future use
+	TargetTOF int
+	TargetPTC int
+	// new added: regime of infusion
+	// { none, rboluses (default) }
+	CNTStrategy string
+
+	// ----------------------------------------------------------------
+	// Decisions made by CNT (CNT can be disabled and values set from TCM)
+	// Values can be slightly updated by PUMP (noise/fault injection)
+	// [mL]
+	Bolus int
+	// [mL/hr]
 	Infusion int
 
-	//
+	// ----------------------------------------------------------------
+	// Parameters essential for PatientModel (PM).
+	// Might be set by TCM.
+	// Typically left in default values.
+	// Vd is either Weight*UnitVd or AbsoluteVd
+	// Vd => concentration [ug/mL]
 	UnitVd     int
 	AbsoluteVd int
-	TargetTOF  int
-	TargetPTC  int
 	EC50       Double
-	TOF        int
-	PTC        int
 
-	//
-	Weight int
-	Age    int
+	// ----------------------------------------------------------------
+	// Outputs from PM
+	// newly added: Cinp
+	// concentration in blood plasma (C0)
+	// [ug/mL]
+	Cinp Double
+	// estimated TOF and PTC
+	TOF int
+	PTC int
+	// newly added
+	// cumulative consumption of drug by patient in [mL] of solution
+	ConsumedTotal Double
+	// estimated time till full recovery [s]
+	RecoveryTime int
 
+	// ----------------------------------------------------------------
+	// Controlled by TCM.
+	// Cycle += 1 after every simulation cycle
+	// Mtime += step [s]
+	// ----------------------------------------------------------------
+	// PM works in [s], 1 second time granularity
 	Mtime int
 	Cycle int
 }
