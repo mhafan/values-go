@@ -5,6 +5,7 @@ package main
 
 //
 import (
+	"fmt"
 	"log"
 	"rcore"
 )
@@ -15,7 +16,7 @@ var rsims *rcore.SIMS = nil
 
 // ----------------------------------------------------------------------
 // For every cycle of distributed simulation.
-func rserverCycle() {
+func pmRCoreCycle() {
 	//
 	tol := []string{"mtime", "cycle", "bolus", "infusion"}
 
@@ -65,7 +66,7 @@ func rserverCycle() {
 // ----------------------------------------------------------------------
 // vm.X.Y -> START
 // --- Initialization of new experiment
-func rserverStart() {
+func pmRCoreStart() {
 	//
 	rsims = rcore.EmptySIMS()
 
@@ -79,7 +80,7 @@ func rserverStart() {
 
 // ----------------------------------------------------------------------
 // Deallocation of the current experiment
-func rserverEnd() {
+func pmRCoreEnd() {
 	//
 	rsims = nil
 
@@ -89,7 +90,17 @@ func rserverEnd() {
 
 // ----------------------------------------------------------------------
 // main function (called from main() when arg is -s)
-func rserverMain() {
+func pmRCoreMAIN() {
 	//
-	rcore.EntityCore(rcore.CallPatMod, rserverCycle, rserverStart, rserverEnd)
+	fmt.Println("PM starting")
+
+	//
+	ent := rcore.Entity{
+		rcore.CallPatMod,
+		false,
+		pmRCoreCycle, pmRCoreStart, pmRCoreEnd,
+		func() {}}
+
+	//
+	rcore.EntityCore(&ent)
 }

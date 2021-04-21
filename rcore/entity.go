@@ -14,7 +14,7 @@ import (
 
 // --------------------------------------------------------------------
 //
-var Global MConn
+var Global MConn = MConn{}
 
 // --------------------------------------------------------------------
 // hostname + AUTH passwd
@@ -90,7 +90,8 @@ type MConn struct {
 	topublish chan rmsg
 
 	//
-	Running bool
+	Running     bool
+	Initialized bool
 }
 
 // --------------------------------------------------------------------
@@ -163,6 +164,7 @@ func RServerInit() *MConn {
 
 	// ...
 	Global.Running = true
+	Global.Initialized = true
 
 	//
 	if err != nil || err2 != nil {
@@ -181,6 +183,20 @@ func RServerInit() *MConn {
 	// ----------------------------------------------------------------
 	//
 	return &Global
+}
+
+// ----------------------------------------------------------------------
+//
+type Entity struct {
+	//
+	MyTurn   string
+	IsMaster bool
+
+	//
+	What, WhatStart, WhatEnd func()
+
+	//
+	SlaveFuncGo func()
 }
 
 // --------------------------------------------------------------------
@@ -208,7 +224,7 @@ func EntityExpRecReload(keys []string) bool {
 
 // ----------------------------------------------------------------------
 //
-func EntityStartSequence(expIDChannel string, whatStart func()) {
+func EntityStartSequence(ent *Entity, expIDChannel string) {
 	//
 	log.Println("New experiment started: ", expIDChannel)
 
@@ -219,12 +235,12 @@ func EntityStartSequence(expIDChannel string, whatStart func()) {
 	CurrentExp.Load([]string{}, true)
 
 	//
-	whatStart()
+	ent.WhatStart()
 }
 
 // ----------------------------------------------------------------------
 //
-func EntityEndSequence(expIDChannel string, whatEnd func()) {
+func EntityEndSequence(ent *Entity, expIDChannel string) {
 	////
 	if CurrentExp != nil {
 		//
@@ -233,7 +249,7 @@ func EntityEndSequence(expIDChannel string, whatEnd func()) {
 			log.Println("Experiment ended: ", expIDChannel)
 
 			//
-			whatEnd()
+			ent.WhatEnd()
 		}
 
 		//
@@ -243,13 +259,13 @@ func EntityEndSequence(expIDChannel string, whatEnd func()) {
 
 // ----------------------------------------------------------------------
 //
-func EntityRoundSequence(expIDChannel string, what func()) {
+func EntityRoundSequence(ent *Entity, expIDChannel string) {
 	//
 	if CurrentExp != nil {
 		//
 		if CurrentExp.Varname == expIDChannel {
 			//
-			what()
+			ent.What()
 		}
 	}
 }
@@ -269,16 +285,19 @@ func EntityMasterChannel(msg rmsg) {
 
 // ----------------------------------------------------------------------
 //
-func EntityCore(myTurn string, what, whatStart, whatEnd func()) {
+func EntityCore(ent *Entity) {
 	// --------------------------------------------------------------------
 	// initiate the r-sysem library (sender|listener)
-	_rglobal := RServerInit()
-
-	// some errror
-	if _rglobal == nil {
+	if ent.IsMaster {
 		//
-		log.Println("R-system library start failure")
-		os.Exit(1)
+		_rglobal := RServerInit()
+
+		// some errror
+		if _rglobal == nil {
+			//
+			log.Println("R-system library start failure")
+			os.Exit(1)
+		}
 	}
 
 	// --------------------------------------------------------------------
@@ -286,8 +305,10 @@ func EntityCore(myTurn string, what, whatStart, whatEnd func()) {
 	_meFollower := NewFollower()
 
 	//
-	defer Global.handleIN.Close()
-	defer Global.handleOUT.Close()
+	if ent.IsMaster {
+		//
+		go ent.SlaveFuncGo()
+	}
 
 	// --------------------------------------------------------------------
 	//
@@ -305,17 +326,17 @@ func EntityCore(myTurn string, what, whatStart, whatEnd func()) {
 			//
 			case CallStart:
 				//
-				EntityStartSequence(msg.Channel, whatStart)
+				EntityStartSequence(ent, msg.Channel)
 
 			//
 			case CallEnd:
 				//
-				EntityEndSequence(msg.Channel, whatEnd)
+				EntityEndSequence(ent, msg.Channel)
 
 				//
-			case myTurn:
+			case ent.MyTurn:
 				//
-				EntityRoundSequence(msg.Channel, what)
+				EntityRoundSequence(ent, msg.Channel)
 
 			default:
 

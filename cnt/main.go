@@ -155,6 +155,7 @@ func cycle() {
 	}
 
 	//
+	rcore.CurrentExp.Say(rcore.CallPump)
 }
 
 // ----------------------------------------------------------------------
@@ -163,13 +164,15 @@ func main() {
 	//
 	flag.Parse()
 
-	// start listening CallCNT message ("CNT")
-	rcore.EntityCore(rcore.CallCNT, func() {
-		// process the CNT message
-		cycle()
+	//
+	ent := rcore.Entity{
+		rcore.CallCNT,
+		true,
+		cycle,
+		startupWithExperiment,
+		endWithExperiment,
+		pmRCoreMAIN}
 
-		// call the next one, i.e. PUMP
-		rcore.CurrentExp.Say(rcore.CallPump)
-		// start/end messages
-	}, startupWithExperiment, endWithExperiment)
+	// start listening CallCNT message ("CNT")
+	rcore.EntityCore(&ent)
 }

@@ -1,4 +1,4 @@
-for i in cnt cuff pm pump tcm
+for i in cnt cuff pump tcm
 do
 cd $i
 go build .
