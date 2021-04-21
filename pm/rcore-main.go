@@ -11,23 +11,8 @@ import (
 
 // ----------------------------------------------------------------------
 // Current patient and current Simulation state
-var rpatient *Patient = nil
-var rsims *SIMS = nil
-
-// ----------------------------------------------------------------------
-// rcore.Exprec transger to SIMS (patmod internal data struct)
-func (r *SIMS) updateFrom(e *rcore.Exprec) {
-	// patient info
-	r.patient.weightKG = rcore.Double(e.Weight)
-	r.patient.age = e.Age
-	r.patient.sex = sexMale
-	// TODO: Vd_kg, ec50
-	// r.patient.rocCFG
-
-	//
-	r.bolus = rcore.Volume{rcore.Double(e.Bolus), rcore.ML}
-	r.infusion = rcore.Volume_0()
-}
+var rpatient *rcore.Patient = nil
+var rsims *rcore.SIMS = nil
 
 // ----------------------------------------------------------------------
 // For every cycle of distributed simulation.
@@ -47,28 +32,28 @@ func rserverCycle() {
 
 	// --------------------------------------------------------------------
 	// REDIS record -> SIMS (patmod simulation state)
-	rsims.updateFrom(_c)
+	rsims.UpdateFrom(_c)
 
 	//
 	log.Println("PMA; cycle: ", _c.Cycle, "mtime", _c.Mtime,
-		"rtime", rsims.time, "bolus ", _c.Bolus, " ", rsims.bolus)
+		"rtime", rsims.Time, "bolus ", _c.Bolus, " ", rsims.Bolus)
 
 	// --------------------------------------------------------------------
 	// reach Mtime in 1s simulation steps
-	for rsims.time <= _c.Mtime {
+	for rsims.Time <= _c.Mtime {
 		// h = 1s, continuous simulation step
-		rsims.rocSimStep()
+		rsims.RocSimStep()
+
+		/*
+			log.Println("HH ", rsims.Time, " ", rsims.Rocs.yROC, " ", rsims.Rocs.TOF0,
+				rsims.Rocs.effect) */
 
 		//
-		log.Println("HH ", rsims.time, " ", rsims.rocs.yROC, " ", rsims.rocs.TOF0,
-			rsims.rocs.effect)
-
-		//
-		_c.TOF = rsims.rocs.TOF0
+		_c.TOF = rsims.Rocs.TOF0
 		_c.PTC = 0
 
 		// +1s
-		rsims = rsims.next1S()
+		rsims = rsims.Next1S()
 	}
 
 	//
@@ -83,14 +68,14 @@ func rserverCycle() {
 // --- Initialization of new experiment
 func rserverStart() {
 	//
-	rpatient = NewPatient()
+	rpatient = rcore.NewPatient()
 
 	//
-	rpatient.setDefaults()
-	rpatient.weightKG = rcore.Double(rcore.CurrentExp.Weight)
+	rpatient.SetDefaults()
+	rpatient.WeightKG = rcore.Double(rcore.CurrentExp.Weight)
 
 	//
-	rsims = emptySIMS(rpatient)
+	rsims = rcore.EmptySIMS(rpatient)
 
 	//
 	log.Println("Starting new patient: ", rsims)
