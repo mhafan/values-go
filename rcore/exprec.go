@@ -73,6 +73,8 @@ type Exprec struct {
 	// Typically left in default values.
 	// Vd is either Weight*UnitVd or AbsoluteVd
 	// Vd => concentration [ug/mL]
+	// ----------------------------------------------------------------
+	// these should ramain constant/intact during the experiment
 	UnitVd     int
 	AbsoluteVd int
 	EC50       Double
