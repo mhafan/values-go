@@ -1,6 +1,19 @@
 package rcore
 
-//
+// ----------------------------------------------------------------------
+// Transformation W -> V
+func RocWSOL(w Weight) Volume {
+	//
+	return Volume{w.In(Mg).Value / 10.0, ML}
+}
+
+// V -> W
+func RocSOLW(v Volume) Weight {
+	//
+	return Weight{v.In(ML).Value * 10.0, Mg}
+}
+
+// Hill
 func RocDefHill() Hill {
 	//
 	return Hill{100.0, 0.823, 4.79}
@@ -59,7 +72,7 @@ func RocSimStep1H(yin COMP_X, infConc Double) COMP_X {
 // ----------------------------------------------------------------------
 func (ss *SIMS) RocSimStep() {
 	// Volume of distribution
-	Vd := ss.Patient.Vc_roc()
+	Vd := ss.VdCentral
 
 	// eventual infusion input
 	ic := 0.0

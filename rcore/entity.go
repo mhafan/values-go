@@ -16,9 +16,6 @@ import (
 //
 var Global MConn
 
-// REDIS instance for long term experimenting
-var redis_host = "pchrubym.fit.vutbr.cz"
-
 // --------------------------------------------------------------------
 // hostname + AUTH passwd
 var flHostname = flag.String("h", ":6379", "REDIS hostname")

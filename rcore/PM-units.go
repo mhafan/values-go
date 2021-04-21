@@ -1,96 +1,147 @@
 package rcore
 
+//
+import (
+	"math"
+)
 
+// ----------------------------------------------------------------------
+// type alias for float (perhaps skip and keep saying float64)
 type Double = float64
 
 // ----------------------------------------------------------------------
-//
+// 1 unit = 1000
+// -1 unit = 1/1000
 func conv(inval Double, inunit int, outunit int) Double {
-  //
-  for inunit != outunit {
-    //
-    if inunit < outunit {
-      inval /= 1000.0; inunit++;
-    } else {
-      inval *= 1000.0; inunit--;
-    }
-  }
+	//
+	for inunit != outunit {
+		//
+		if inunit < outunit {
+			inval /= 1000.0
+			inunit++
+		} else {
+			inval *= 1000.0
+			inunit--
+		}
+	}
 
-  //
-  return inval
+	//
+	return inval
 }
 
 // ----------------------------------------------------------------------
-//
+// Weight = base-number + 10^3*unit
 type Weight struct {
-  //
-  Value Double
-  Unit int
+	//
+	Value Double
+	//
+	Unit int
 }
 
 // ----------------------------------------------------------------------
-//
+// [g] == 0, gram
 const (
-  Kg= 1
-  G = 0
-  Mg= -1
-  Ug= -2
-  Ng= -3
+	// kilo-gram
+	Kg = 1
+	//
+	G = 0
+	//
+	Mg = -1
+	Ug = -2
+	Ng = -3
 )
 
 // ----------------------------------------------------------------------
 //
 type Volume struct {
-  //
-  Value Double
-  Unit int
+	//
+	Value Double
+	//
+	Unit int
 }
 
 // ----------------------------------------------------------------------
 //
 const (
-  L = 0
-  ML= -1
-  UL= -2
-  NL= -3
+	L  = 0
+	ML = -1
+	UL = -2
+	NL = -3
 )
 
-
 // ----------------------------------------------------------------------
-//
-func _gg(val Double) Weight { return Weight{val, 0} }
-func _mg(val Double) Weight { return Weight{val, -1} }
-func _ug(val Double) Weight { return Weight{val, -2} }
-func _ng(val Double) Weight { return Weight{val, -3} }
-
-// ----------------------------------------------------------------------
-//
+// transformation Weight->outunit
 func (w Weight) In(outunit int) Weight {
-  //
-  return Weight{ conv(w.Value, w.Unit, outunit), outunit }
+	//
+	return Weight{conv(w.Value, w.Unit, outunit), outunit}
 }
 
 // ----------------------------------------------------------------------
 //
 func (v Volume) In(outunit int) Volume {
-  //
-  return Volume{ conv(v.Value, v.Unit, outunit), outunit }
+	//
+	return Volume{conv(v.Value, v.Unit, outunit), outunit}
 }
 
+// ----------------------------------------------------------------------
 //
 func Volume_0() Volume { return Volume{0, ML} }
 func Weight_0() Weight { return Weight{0, ML} }
 
+// ----------------------------------------------------------------------
+//
+func VdFor(drug string, absValue Double, unitValue Double, weight Weight) Volume {
+	//
+	if absValue > 0 {
+		//
+		return Volume{absValue, L}
+	}
+
+	//
+	if unitValue > 0 {
+		//
+		return Volume{unitValue * weight.In(Kg).Value, L}
+	}
+
+	//
+	return Volume{38.0 * weight.In(Kg).Value, L}
+}
+
+// ----------------------------------------------------------------------
+// Hill function config
+type Hill struct {
+	//
+	emax Double
+
+	//
+	ec50  Double
+	gamma Double
+}
 
 // ----------------------------------------------------------------------
 //
-func RocWSOL(w Weight) Volume {
-  //
-  return Volume{ w.In(Mg).Value / 10.0, ML }
+type Bounds struct {
+	//
+	bmin Double
+	bmax Double
+}
+
+// ----------------------------------------------------------------------
+// computed effect
+func (h Hill) value(inp Double) Double {
+	//
+	ip := math.Pow(inp, h.gamma)
+	ep := math.Pow(h.ec50, h.gamma)
+
+	//
+	out := h.emax * (ip / (ep + ip))
+
+	//
+	return math.Min(h.emax, out)
 }
 
 //
-func RocSOLW(v Volume) Weight {
-  //
-  return Weight{ v.In(ML).Value * 10.0, Mg }
+func (b Bounds) bound(v Double) Double {
+	//
+	return math.Min(math.Max(v, b.bmin), b.bmax)
 }

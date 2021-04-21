@@ -24,9 +24,13 @@ type ROCS struct {
 // Simulation state:
 // ----------------------------------------------------------------------
 type SIMS struct {
-	// --------------------------------------------------------------------
 	//
-	Patient *Patient
+	Drug string
+	// --------------------------------------------------------------------
+	// Weight [kg]
+	// Volume of Distribution in Central Compartment (const)
+	Weight    Weight
+	VdCentral Volume
 
 	// --------------------------------------------------------------------
 	// simulation internal data
@@ -43,15 +47,43 @@ type SIMS struct {
 
 // ----------------------------------------------------------------------
 // time(0) zero simstate constructor
-func EmptySIMS(pat *Patient) *SIMS {
+func EmptySIMS() *SIMS {
 	//
-	return &SIMS{
+	out := SIMS{}
+
+	//
+	out.Drug = DrugRocuronium
+	out.Weight = Weight{0, Kg}
+	out.VdCentral = Volume_0()
+	out.Rocs = ROCS{COMP_X{}, RocDefHill(), 0, 0}
+	out.Bolus = Volume_0()
+	out.Infusion = Volume_0()
+
+	//
+	return &out
+}
+
+// ----------------------------------------------------------------------
+// Initial construction of SIMS from Exprec
+func (r *SIMS) SetupFrom(e *Exprec) {
+	//
+	r.Drug = e.Drug
+	r.Weight = Weight{float64(e.Weight), Kg}
+	r.VdCentral = VdFor(r.Drug, float64(e.AbsoluteVd), float64(e.UnitVd), r.Weight)
+}
+
+// ----------------------------------------------------------------------
+// rcore.Exprec transger to SIMS (patmod internal data struct)
+func (r *SIMS) UpdateFrom(e *Exprec) {
+	//
+	r.Bolus = Volume{Double(e.Bolus), ML}
+	r.Infusion = Volume_0()
+
+	//
+	if e.EC50 > 0 {
 		//
-		pat, 0,
-		//
-		ROCS{COMP_X{}, RocDefHill(), 0, 0},
-		// bolus & infusion
-		Volume_0(), Volume_0()}
+		r.Rocs.rocHill.ec50 = e.EC50
+	}
 }
 
 // ----------------------------------------------------------------------
@@ -62,6 +94,7 @@ func (from *SIMS) NextState(at int) *SIMS {
 
 	// shift time
 	ns.Time = at
+
 	// reset inputs
 	ns.Bolus = Volume_0()
 	ns.Infusion = Volume_0()
@@ -75,19 +108,4 @@ func (from *SIMS) NextState(at int) *SIMS {
 func (from *SIMS) Next1S() *SIMS {
 	//
 	return from.NextState(from.Time + 1)
-}
-
-// ----------------------------------------------------------------------
-// rcore.Exprec transger to SIMS (patmod internal data struct)
-func (r *SIMS) UpdateFrom(e *Exprec) {
-	// patient info
-	r.Patient.WeightKG = Double(e.Weight)
-	r.Patient.Age = e.Age
-	r.Patient.Sex = SexMale
-	// TODO: Vd_kg, ec50
-	// r.patient.rocCFG
-
-	//
-	r.Bolus = Volume{Double(e.Bolus), ML}
-	r.Infusion = Volume_0()
 }

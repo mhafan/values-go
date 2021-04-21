@@ -10,8 +10,7 @@ import (
 )
 
 // ----------------------------------------------------------------------
-// Current patient and current Simulation state
-var rpatient *rcore.Patient = nil
+// Current current Simulation state
 var rsims *rcore.SIMS = nil
 
 // ----------------------------------------------------------------------
@@ -68,14 +67,11 @@ func rserverCycle() {
 // --- Initialization of new experiment
 func rserverStart() {
 	//
-	rpatient = rcore.NewPatient()
+	rsims = rcore.EmptySIMS()
 
 	//
-	rpatient.SetDefaults()
-	rpatient.WeightKG = rcore.Double(rcore.CurrentExp.Weight)
-
-	//
-	rsims = rcore.EmptySIMS(rpatient)
+	rsims.SetupFrom(rcore.CurrentExp)
+	rsims.UpdateFrom(rcore.CurrentExp)
 
 	//
 	log.Println("Starting new patient: ", rsims)
@@ -85,7 +81,6 @@ func rserverStart() {
 // Deallocation of the current experiment
 func rserverEnd() {
 	//
-	rpatient = nil
 	rsims = nil
 
 	//
