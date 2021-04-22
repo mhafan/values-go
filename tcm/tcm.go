@@ -5,6 +5,7 @@ package main
 // ...
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"rcore"
@@ -32,6 +33,26 @@ func mydefs(_c *rcore.Exprec) {
 
 	//
 	_c.Drug = rcore.DrugRocuronium
+	_c.CNTStrategy = rcore.CNTStratIBolus
+}
+
+// --------------------------------------------------------------------
+//
+func printState(c *rcore.Exprec) {
+	//
+	fmt.Println(
+		c.Cycle, "/", c.Mtime,
+		" INPUTS ", c.Bolus, "/", c.Infusion,
+		" OUTS ", c.Cinp,
+		" TOF/PTC", c.TOF, "/", c.PTC,
+		" cons ", c.ConsumedTotal,
+		" rtime ", c.RecoveryTime)
+}
+
+// --------------------------------------------------------------------
+//
+func printCSV(file *os.File, c *rcore.Exprec) {
+	//
 }
 
 // --------------------------------------------------------------------
@@ -47,6 +68,19 @@ func main() {
 
 		//
 		return
+	}
+
+	// --------------------------------------------------------------------
+	//
+	csv, csvError := os.Create("out.csv")
+
+	//
+	defer csv.Close()
+
+	//
+	if csvError != nil {
+		//
+		log.Println("Creating output CSV failed")
 	}
 
 	// --------------------------------------------------------------------
@@ -84,6 +118,11 @@ func main() {
 	//
 	log.Println("ExperimentID=", _expID, "; starting")
 
+	//
+	_toUpdateFrom := []string{
+		"TOF", "PTC", "bolus", "infusion",
+		"Cinp", "ConsumedTotal", "RecoveryTime"}
+
 	// --------------------------------------------------------------------
 	// The experiment goes in cycles with a predefined number of iterations
 	for {
@@ -99,9 +138,6 @@ func main() {
 			//
 			break
 		}
-
-		//
-		log.Println("Cycle: ", rcore.CurrentExp.Cycle)
 
 		// ------------------------------------------------------------------
 		// next cycle, save the record and call CNT out
@@ -156,13 +192,14 @@ func main() {
 
 		// ------------------------------------------------------------------
 		//
-		if rcore.EntityExpRecReload([]string{"TOF", "PTC"}) == false {
+		if rcore.EntityExpRecReload(_toUpdateFrom) == false {
 			//
 			break
 		}
 
 		//
-		log.Println("TOFOUT ", rcore.CurrentExp.TOF)
+		printState(rcore.CurrentExp)
+		printCSV(csv, rcore.CurrentExp)
 
 		// ------------------------------------------------------------------
 		// next cycle, next time moment

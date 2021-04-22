@@ -94,10 +94,24 @@ func regulationInDirectMode(_r *rcore.Exprec) bool {
 	_r.Bolus = 0
 	_r.Infusion = 0
 
+	//
+	var _doIBolus = false
+	var _doRBolus = false
+
+	//
+	switch _r.CNTStrategy {
+	case rcore.CNTStratBasic:
+		_doIBolus = true
+		_doRBolus = true
+
+	case rcore.CNTStratIBolus:
+		_doIBolus = true
+	}
+
 	// --------------------------------------------------------------------
 	// time == 0 || Cycle == 0
 	// --------------------------------------------------------------------
-	if _r.Mtime <= 0 || _r.Cycle == 0 {
+	if _r.Mtime <= 0 || _r.Cycle == 0 && _doIBolus {
 		//
 		if _initialBolusGiven == true {
 			//
@@ -121,7 +135,7 @@ func regulationInDirectMode(_r *rcore.Exprec) bool {
 	// --------------------------------------------------------------------
 	// repetitive bolus, if enabled:
 	// the time has reached scheduled moment
-	if _r.Mtime >= _scheduledBolusAt && _scheduledBolusAt > 0 {
+	if _r.Mtime >= _scheduledBolusAt && _scheduledBolusAt > 0 && _doRBolus {
 		// now
 		_lastTimeBolus = _r.Mtime
 		// schedule the next moment

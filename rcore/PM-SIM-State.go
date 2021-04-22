@@ -33,6 +33,9 @@ type SIMS struct {
 	Effect Double
 	TOF0   int
 
+	//
+	BolusConsumptionML Double
+
 	// --------------------------------------------------------------------
 	// inputs
 	Bolus    Volume
@@ -51,6 +54,9 @@ func EmptySIMS() *SIMS {
 	out.VdCentral = Volume_0()
 	out.Bolus = Volume_0()
 	out.Infusion = Volume_0()
+
+	//
+	out.BolusConsumptionML = 0
 
 	//
 	out.YROC = COMP_X{0, 0, 0, 0}
@@ -77,6 +83,8 @@ func (r *SIMS) UpdateFrom(e *Exprec) {
 	//
 	r.Bolus = Volume{Double(e.Bolus), ML}
 	r.Infusion = Volume{Double(e.Infusion), ML}
+
+	r.BolusConsumptionML = 0
 
 	//
 	if e.EC50 > 0 {

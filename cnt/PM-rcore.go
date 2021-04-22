@@ -44,10 +44,11 @@ func pmRCoreCycle() {
 	//
 	_c.TOF = rsims.TOF0
 	_c.PTC = 0
-	//_c.Cinp = rsims.Rocs.yROC[0]
+	_c.Cinp = rsims.YROC[1]
+	_c.ConsumedTotal += rsims.BolusConsumptionML
 
 	//
-	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp"}, false)
+	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp", "ConsumedTotal"}, false)
 
 	//
 	_c.Say(rcore.CallSensor)

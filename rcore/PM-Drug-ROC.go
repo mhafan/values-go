@@ -99,6 +99,9 @@ func (ss *SIMS) RocSimStep() {
 	if ss.Bolus.Value > 0.0 {
 		//
 		ss.YROC[1] += RocSOLW(ss.Bolus).In(Ug).Value / Vd.In(ML).Value
+
+		//
+		ss.BolusConsumptionML += ss.Bolus.Value
 	}
 
 	//

@@ -30,6 +30,11 @@ const (
 	DrugCisatracurium = "CIS"
 
 	//
+	CNTStratBasic      = "basic"
+	CNTStratSimulation = "sim"
+	CNTStratIBolus     = "ibolus"
+
+	//
 	SexMale   = "male"
 	SexFemale = "female"
 
