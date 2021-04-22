@@ -1,0 +1,6 @@
+{
+    "files.exclude": {
+        "**/*.mod": true,
+        "**/*.sum": true
+    }
+}

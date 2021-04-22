@@ -92,16 +92,16 @@ func (ss *SIMS) RocSimStep() {
 	//
 	if ss.Time > 0 {
 		//
-		ss.Rocs.yROC = RocSimStep1H(ss.Rocs.yROC, ic)
+		ss.YROC = RocSimStep1H(ss.YROC, ic)
 	}
 
 	//
 	if ss.Bolus.Value > 0.0 {
 		//
-		ss.Rocs.yROC[1] += RocSOLW(ss.Bolus).In(Ug).Value / Vd.In(ML).Value
+		ss.YROC[1] += RocSOLW(ss.Bolus).In(Ug).Value / Vd.In(ML).Value
 	}
 
 	//
-	ss.Rocs.effect = ss.Rocs.rocHill.value(ss.Rocs.yROC[1])
-	ss.Rocs.TOF0 = int(_TOFbounds.bound(100.0 - ss.Rocs.effect))
+	ss.Effect = ss.RocHill.value(ss.YROC[1])
+	ss.TOF0 = int(_TOFbounds.bound(100.0 - ss.Effect))
 }

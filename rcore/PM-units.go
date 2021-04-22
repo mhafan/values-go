@@ -104,7 +104,7 @@ func VdFor(drug string, absValue Double, unitValue Double, weight Weight) Volume
 	}
 
 	//
-	return Volume{38.0 * weight.In(Kg).Value, L}
+	return Volume{38.0 * weight.In(Kg).Value, ML}
 }
 
 // ----------------------------------------------------------------------

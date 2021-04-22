@@ -109,7 +109,7 @@ type Exprec struct {
 var CurrentExp *Exprec
 
 // --------------------------------------------------------------------
-//
+// New experiment ID in the form "vm." + testcase + "." + num
 func NewExpID(testcase string) string {
 	//
 	n, _ := redis.Int(Global.handleOUT.Do("INCR", "vm.expcounter"))
@@ -134,17 +134,9 @@ func (r *Exprec) channel() string {
 
 // --------------------------------------------------------------------
 //
-func Contains(keys []string, key string) bool {
+func (r *Exprec) ischannel(nm string) bool {
 	//
-	for _, v := range keys {
-		//
-		if v == key {
-			return true
-		}
-	}
-
-	//
-	return false
+	return r.channel() == nm
 }
 
 // --------------------------------------------------------------------
@@ -197,7 +189,11 @@ func (r *Exprec) Save_d(key string, i Double, keys []string, all bool) {
 func (r *Exprec) Save(keys []string, all bool) bool {
 	//
 	r.Save_s("drug", r.Drug, keys, all)
+	r.Save_s("CNTStrategy", r.CNTStrategy, keys, all)
+
 	r.Save_d("EC50", r.EC50, keys, all)
+	r.Save_d("Cinp", r.Cinp, keys, all)
+	r.Save_d("ConsumedTotal", r.ConsumedTotal, keys, all)
 
 	//
 	r.Save_i("bolus", r.Bolus, keys, all)
@@ -216,6 +212,7 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 	r.Save_i("targetPTC", r.TargetPTC, keys, all)
 	r.Save_i("TOF", r.TOF, keys, all)
 	r.Save_i("PTC", r.PTC, keys, all)
+	r.Save_i("RecoveryTime", r.RecoveryTime, keys, all)
 
 	//
 	return true
@@ -223,67 +220,67 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 
 // --------------------------------------------------------------------
 //
+func (r *Exprec) Load_i(key string, i *int, keys []string, all bool) {
+	//
+	if all || Contains(keys, key) {
+		//
+		*i, _ = redis.Int(Global.handleOUT.Do("hget", r.Varname, key))
+	}
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) Load_d(key string, i *Double, keys []string, all bool) {
+	//
+	if all || Contains(keys, key) {
+		//
+		*i, _ = redis.Float64(Global.handleOUT.Do("hget", r.Varname, key))
+	}
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) Load_s(key string, i *string, keys []string, all bool) {
+	//
+	if all || Contains(keys, key) {
+		//
+		*i, _ = redis.String(Global.handleOUT.Do("hget", r.Varname, key))
+	}
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) LoadAll() {
+	//
+	r.Load([]string{}, true)
+}
+
+// --------------------------------------------------------------------
+//
 func (r *Exprec) Load(keys []string, all bool) bool {
 	//
-	var _s = Global.handleOUT
-
-	f := func(k string) bool { return all == true || Contains(keys, k) }
-
-	//
-	if f("drug") {
-		r.Drug, _ = redis.String(_s.Do("hget", r.Varname, "drug"))
-	}
-
-	if f("bolus") {
-		r.Bolus, _ = redis.Int(_s.Do("hget", r.Varname, "bolus"))
-	}
-
-	if f("infusion") {
-		r.Infusion, _ = redis.Int(_s.Do("hget", r.Varname, "infusion"))
-	}
+	r.Load_s("drug", &r.Drug, keys, all)
+	r.Load_s("CNTStrategy", &r.CNTStrategy, keys, all)
 
 	//
-	if f("weight") {
-		r.Weight, _ = redis.Int(_s.Do("hget", r.Varname, "weight"))
-	}
+	r.Load_i("bolus", &r.Bolus, keys, all)
+	r.Load_i("infusion", &r.Infusion, keys, all)
+	r.Load_i("weight", &r.Weight, keys, all)
+	r.Load_i("age", &r.Age, keys, all)
+	r.Load_i("mtime", &r.Mtime, keys, all)
+	r.Load_i("cycle", &r.Cycle, keys, all)
+	r.Load_i("unitVd", &r.Bolus, keys, all)
+	r.Load_i("absoluteVd", &r.AbsoluteVd, keys, all)
+	r.Load_i("targetTOF", &r.TargetTOF, keys, all)
+	r.Load_i("targetPTC", &r.TargetPTC, keys, all)
+	r.Load_i("TOF", &r.TOF, keys, all)
+	r.Load_i("PTC", &r.PTC, keys, all)
+	r.Load_i("RecoveryTime", &r.RecoveryTime, keys, all)
 
-	if f("age") {
-		r.Age, _ = redis.Int(_s.Do("hget", r.Varname, "age"))
-	}
-
-	if f("mtime") {
-		r.Mtime, _ = redis.Int(_s.Do("hget", r.Varname, "mtime"))
-	}
-
-	if f("cycle") {
-		r.Cycle, _ = redis.Int(_s.Do("hget", r.Varname, "cycle"))
-	}
-
-	if f("unitVd") {
-		r.UnitVd, _ = redis.Int(_s.Do("hget", r.Varname, "unitVd"))
-	}
-
-	if f("absoluteVd") {
-		r.AbsoluteVd, _ = redis.Int(_s.Do("hget", r.Varname, "absoluteVd"))
-	}
-
-	if f("targetTOF") {
-		r.TargetTOF, _ = redis.Int(_s.Do("hget", r.Varname, "targetTOF"))
-	}
-
-	if f("targetPTC") {
-		r.TargetPTC, _ = redis.Int(_s.Do("hget", r.Varname, "targetPTC"))
-	}
-
-	if f("EC50") {
-		r.EC50, _ = redis.Float64(_s.Do("hget", r.Varname, "EC50"))
-	}
-	if f("TOF") {
-		r.TOF, _ = redis.Int(_s.Do("hget", r.Varname, "TOF"))
-	}
-	if f("PTC") {
-		r.PTC, _ = redis.Int(_s.Do("hget", r.Varname, "PTC"))
-	}
+	//
+	r.Load_d("EC50", &r.EC50, keys, all)
+	r.Load_d("Cinp", &r.Cinp, keys, all)
+	r.Load_d("ConsumedTotal", &r.ConsumedTotal, keys, all)
 
 	//
 	return true
@@ -293,5 +290,5 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 //
 func (r *Exprec) Say(message string) {
 	//
-	Global.topublish <- rmsg{r.channel(), message}
+	Global.topublish <- Rmsg{r.channel(), message}
 }

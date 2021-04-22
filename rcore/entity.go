@@ -1,11 +1,12 @@
-//
+// --------------------------------------------------------------------
+// Entity = one component in the distributed system Values-NMT-HIL
+// --------------------------------------------------------------------
 package rcore
 
 // --------------------------------------------------------------------
 // ...
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -35,6 +36,9 @@ func dial() (redis.Conn, error) {
 	if e != nil {
 		//
 		log.Println("Dial error: ", e)
+		log.Println("Cannot connect REDIS. Exiting.")
+
+		//
 		os.Exit(-1)
 	}
 
@@ -44,7 +48,7 @@ func dial() (redis.Conn, error) {
 
 // --------------------------------------------------------------------
 // Message
-type rmsg struct {
+type Rmsg struct {
 	///
 	Channel string
 	Message string
@@ -54,7 +58,7 @@ type rmsg struct {
 // Follower is defined by its channel for receiving messages
 type Follower struct {
 	//
-	Inputs chan rmsg
+	Inputs chan Rmsg
 }
 
 // --------------------------------------------------------------------
@@ -63,7 +67,7 @@ func NewFollower() *Follower {
 	//
 	p := &Follower{
 		//
-		Inputs: make(chan rmsg, 100),
+		Inputs: make(chan Rmsg, 100),
 	}
 
 	//
@@ -88,11 +92,10 @@ type MConn struct {
 	_followers sync.Mutex
 
 	// channel for publishing
-	topublish chan rmsg
+	topublish chan Rmsg
 
 	//
-	Running     bool
-	Initialized bool
+	Running bool
 }
 
 // --------------------------------------------------------------------
@@ -122,10 +125,11 @@ func listener() {
 	for {
 		// wait & receive a message
 		switch v := psc.Receive().(type) {
+
 		//
 		case redis.Message:
 			// construct a message
-			_rmsg := rmsg{v.Channel, string(v.Data)}
+			_rmsg := Rmsg{v.Channel, string(v.Data)}
 
 			//
 			Global._followers.Lock()
@@ -138,6 +142,7 @@ func listener() {
 
 			//
 			Global._followers.Unlock()
+
 		//
 		case redis.Subscription:
 			//
@@ -161,11 +166,10 @@ func RServerInit() *MConn {
 	Global.handleIN, err2 = dial()
 
 	// make published-messages channel
-	Global.topublish = make(chan rmsg, 100)
+	Global.topublish = make(chan Rmsg, 100)
 
 	// ...
 	Global.Running = true
-	Global.Initialized = true
 
 	//
 	if err != nil || err2 != nil {
@@ -187,11 +191,10 @@ func RServerInit() *MConn {
 }
 
 // ----------------------------------------------------------------------
-//
+// Entity descriptor
 type Entity struct {
-	//
-	MyTurn   string
-	IsMaster bool
+	// activating on this message
+	MyTurn string
 
 	//
 	Slave *Entity
@@ -200,7 +203,7 @@ type Entity struct {
 	What, WhatStart, WhatEnd func()
 
 	//
-	SlaveFuncGo func()
+	WhatDefault func(Rmsg)
 }
 
 // --------------------------------------------------------------------
@@ -211,13 +214,13 @@ func MakeNewEntity() *Entity {
 
 	//
 	ent.MyTurn = ""
-	ent.IsMaster = false
 	ent.Slave = nil
 
 	//
 	ent.What = func() {}
 	ent.WhatStart = func() {}
 	ent.WhatEnd = func() {}
+	ent.WhatDefault = func(a Rmsg) {}
 
 	//
 	return &ent
@@ -227,7 +230,7 @@ func MakeNewEntity() *Entity {
 //
 func RPublish(channel, message string) {
 	// ...
-	Global.topublish <- rmsg{channel, message}
+	Global.topublish <- Rmsg{channel, message}
 }
 
 // --------------------------------------------------------------------
@@ -256,7 +259,7 @@ func EntityStartSequence(ent *Entity, expIDChannel string) {
 	CurrentExp = MakeExpID(expIDChannel)
 
 	//
-	CurrentExp.Load([]string{}, true)
+	CurrentExp.LoadAll()
 
 	//
 	ent.WhatStart()
@@ -274,7 +277,7 @@ func EntityEndSequence(ent *Entity, expIDChannel string) {
 	////
 	if CurrentExp != nil {
 		//
-		if CurrentExp.Varname == expIDChannel {
+		if CurrentExp.ischannel(expIDChannel) {
 			//
 			log.Println("Experiment ended: ", expIDChannel)
 
@@ -287,10 +290,10 @@ func EntityEndSequence(ent *Entity, expIDChannel string) {
 				ent.Slave.WhatEnd()
 			}
 		}
-
-		//
-		CurrentExp = nil
 	}
+
+	//
+	CurrentExp = nil
 }
 
 // ----------------------------------------------------------------------
@@ -299,7 +302,7 @@ func EntityRoundSequence(ent *Entity, expIDChannel string) {
 	//
 	if CurrentExp != nil {
 		//
-		if CurrentExp.Varname == expIDChannel {
+		if CurrentExp.ischannel(expIDChannel) {
 			//
 			ent.What()
 		}
@@ -308,7 +311,7 @@ func EntityRoundSequence(ent *Entity, expIDChannel string) {
 
 // ----------------------------------------------------------------------
 //
-func EntityMasterChannel(msg rmsg) {
+func EntityMasterChannel(msg Rmsg) {
 	//
 	switch msg.Message {
 	case "quit":
@@ -324,44 +327,40 @@ func EntityMasterChannel(msg rmsg) {
 func EntityCore(ent *Entity) {
 	// --------------------------------------------------------------------
 	// initiate the r-sysem library (sender|listener)
-	if ent.IsMaster {
+	//
+	_rglobal := RServerInit()
+
+	// some errror
+	if _rglobal == nil {
 		//
-		fmt.Println("MASTER: entity init")
+		log.Println("R-system library start failure")
 
 		//
-		_rglobal := RServerInit()
-
-		// some errror
-		if _rglobal == nil {
-			//
-			log.Println("R-system library start failure")
-			os.Exit(1)
-		}
+		os.Exit(1)
 	}
 
 	// --------------------------------------------------------------------
 	// become a new follower (receiver of messages from vm.*)
 	_meFollower := NewFollower()
-
-	//
 	_secOpt := "never never never"
 
 	//
-	if ent.IsMaster {
+	if ent.Slave != nil {
 		//
 		_secOpt = ent.Slave.MyTurn
 	}
 
 	// --------------------------------------------------------------------
-	//
+	// Entity's runLoop
 	for Global.Running == true {
-		//
+		// waiting for an input from Listener
 		msg := <-_meFollower.Inputs
 
 		//
 		if msg.Channel == MasterChannel {
 			//
 			EntityMasterChannel(msg)
+			//
 		} else {
 			//
 			switch msg.Message {
@@ -385,7 +384,8 @@ func EntityCore(ent *Entity) {
 				EntityRoundSequence(ent.Slave, msg.Channel)
 
 			default:
-
+				//
+				ent.WhatDefault(msg)
 			}
 		}
 	}

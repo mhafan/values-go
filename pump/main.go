@@ -46,7 +46,7 @@ func main() {
 	ent := rcore.Entity{
 		rcore.CallPump, true, nil,
 		pumpMain,
-		func() {}, func() {}, func() {}}
+		func() {}, func() {}}
 
 	//
 	rcore.EntityCore(&ent)

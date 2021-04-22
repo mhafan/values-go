@@ -24,7 +24,7 @@ func main() {
 
 	ent := rcore.Entity{rcore.CallSensor, true, nil,
 		cuffMain,
-		func() {}, func() {}, func() {}}
+		func() {}, func() {}}
 
 	// --------------------------------------------------------------------
 	// listening on channels vm.*

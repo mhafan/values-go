@@ -24,6 +24,7 @@ import (
 // then in "flBolusInterval" intervals, bolus "flBolusAmount"
 var flBolusInterval = flag.Int("b", 200, "Interval between boluses [s]")
 var flBolusAmount = flag.Int("B", 5, "Bolus volume [mL of solution]")
+var flDefaultBehavior = flag.Bool("X", false, "Default PUMP/Cuff")
 
 // ----------------------------------------------------------------------
 // state of the experiment:
@@ -164,6 +165,21 @@ func cycle() {
 
 // ----------------------------------------------------------------------
 //
+func PumpCuffDefaultBehavior(msg rcore.Rmsg) {
+	//
+	switch msg.Message {
+	case rcore.CallPump:
+		//
+		rcore.CurrentExp.Say(rcore.CallPatMod)
+
+	case rcore.CallSensor:
+		//
+		rcore.CurrentExp.Say(rcore.CallTCM)
+	}
+}
+
+// ----------------------------------------------------------------------
+//
 func main() {
 	//
 	flag.Parse()
@@ -173,13 +189,18 @@ func main() {
 
 	//
 	ent.MyTurn = rcore.CallCNT
-	ent.IsMaster = true
 	ent.What = cycle
 	ent.WhatStart = startupWithExperiment
 	ent.WhatEnd = endWithExperiment
 
 	//
 	ent.Slave = pmEntityCFG()
+
+	//
+	if *flDefaultBehavior {
+		//
+		ent.WhatDefault = PumpCuffDefaultBehavior
+	}
 
 	// start listening CallCNT message ("CNT")
 	rcore.EntityCore(ent)

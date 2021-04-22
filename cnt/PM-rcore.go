@@ -35,28 +35,19 @@ func pmRCoreCycle() {
 
 	//
 	log.Println("PMA; cycle: ", _c.Cycle, "mtime", _c.Mtime,
-		"rtime", rsims.Time, "bolus ", _c.Bolus, " ", rsims.Bolus)
-
-	// --------------------------------------------------------------------
-	// reach Mtime in 1s simulation steps
-	for rsims.Time <= _c.Mtime {
-		// h = 1s, continuous simulation step
-		rsims.RocSimStep()
-
-		/*
-			log.Println("HH ", rsims.Time, " ", rsims.Rocs.yROC, " ", rsims.Rocs.TOF0,
-				rsims.Rocs.effect) */
-
-		//
-		_c.TOF = rsims.Rocs.TOF0
-		_c.PTC = 0
-
-		// +1s
-		rsims = rsims.Next1S()
-	}
+		"rtime", rsims.Time, "bolus ", rsims.Bolus.Value, " ", rsims.Bolus)
 
 	//
-	rcore.CurrentExp.Save([]string{"TOF", "PTC"}, false)
+	rsims = rsims.SimSteps(_c.Mtime)
+
+	// --------------------------------------------------------------------
+	//
+	_c.TOF = rsims.TOF0
+	_c.PTC = 0
+	//_c.Cinp = rsims.Rocs.yROC[0]
+
+	//
+	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp"}, false)
 
 	//
 	_c.Say(rcore.CallSensor)

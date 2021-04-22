@@ -8,24 +8,12 @@ type COMP_X [3 + 1]Double
 var _TOFbounds = Bounds{0, 100}
 
 // ----------------------------------------------------------------------
-//
-type ROCS struct {
-	// --------------------------------------------------------------------
-	// model, internal
-	yROC    COMP_X
-	rocHill Hill
-
-	//
-	effect Double
-	TOF0   int
-}
-
-// ----------------------------------------------------------------------
 // Simulation state:
 // ----------------------------------------------------------------------
 type SIMS struct {
-	//
+	// assuming this drug CONST
 	Drug string
+
 	// --------------------------------------------------------------------
 	// Weight [kg]
 	// Volume of Distribution in Central Compartment (const)
@@ -36,8 +24,14 @@ type SIMS struct {
 	// simulation internal data
 	Time int
 
+	// --------------------------------------------------------------------
+	// Continuous Simulator state variables (integrators)
+	YROC    COMP_X
+	RocHill Hill
+
 	//
-	Rocs ROCS
+	Effect Double
+	TOF0   int
 
 	// --------------------------------------------------------------------
 	// inputs
@@ -55,9 +49,14 @@ func EmptySIMS() *SIMS {
 	out.Drug = DrugRocuronium
 	out.Weight = Weight{0, Kg}
 	out.VdCentral = Volume_0()
-	out.Rocs = ROCS{COMP_X{}, RocDefHill(), 0, 0}
 	out.Bolus = Volume_0()
 	out.Infusion = Volume_0()
+
+	//
+	out.YROC = COMP_X{0, 0, 0, 0}
+	out.Effect = 0
+	out.TOF0 = 0
+	out.RocHill = RocDefHill()
 
 	//
 	return &out
@@ -77,12 +76,12 @@ func (r *SIMS) SetupFrom(e *Exprec) {
 func (r *SIMS) UpdateFrom(e *Exprec) {
 	//
 	r.Bolus = Volume{Double(e.Bolus), ML}
-	r.Infusion = Volume_0()
+	r.Infusion = Volume{Double(e.Infusion), ML}
 
 	//
 	if e.EC50 > 0 {
 		//
-		r.Rocs.rocHill.ec50 = e.EC50
+		r.RocHill.ec50 = e.EC50
 	}
 }
 
@@ -108,4 +107,26 @@ func (from *SIMS) NextState(at int) *SIMS {
 func (from *SIMS) Next1S() *SIMS {
 	//
 	return from.NextState(from.Time + 1)
+}
+
+// --------------------------------------------------------------------
+//
+func (from *SIMS) SimSteps(till int) *SIMS {
+	// reach Mtime in 1s simulation steps
+	for from.Time <= till {
+		// h = 1s, continuous simulation step
+		from.RocSimStep()
+
+		// +1s
+		if from.Time+1 <= till {
+			//
+			from = from.Next1S()
+		} else {
+			//
+			break
+		}
+	}
+
+	//
+	return from
 }
