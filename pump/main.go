@@ -2,8 +2,10 @@ package main
 
 //
 //import "log"
-import "flag"
-import "rcore"
+import (
+	"flag"
+	"rcore"
+)
 
 // ----------------------------------------------------------------------
 //
@@ -13,39 +15,39 @@ var flInfusionNoise = flag.Float64("i", 0.0, "Infusion noise")
 // ----------------------------------------------------------------------
 //
 func anyInfluence() bool {
-  //
-  return *flBolusNoise > 0 || *flInfusionNoise > 0
+	//
+	return *flBolusNoise > 0 || *flInfusionNoise > 0
 }
 
 // ----------------------------------------------------------------------
 // PUMP main:
 // - add noise to bolus/infusion if set
 func pumpMain() {
-  /*
-  if anyInfluence() == true {
-    //
-    if rcore.EntityExpRecReload() == false {
-      //
-      return
-    }
+	/*
+	  if anyInfluence() == true {
+	    //
+	    if rcore.EntityExpRecReload() == false {
+	      //
+	      return
+	    }
 
-    // TODO:
-  }*/
+	    // TODO:
+	  }*/
+
+	rcore.CurrentExp.Say(rcore.CallPatMod)
 }
 
 // ----------------------------------------------------------------------
 //
 func main() {
-  //
-  flag.Parse()
+	//
+	flag.Parse()
 
-  //
-  rcore.EntityCore(rcore.CallPump, func() {
-    //
-    pumpMain()
+	ent := rcore.Entity{
+		rcore.CallPump, true, nil,
+		pumpMain,
+		func() {}, func() {}, func() {}}
 
-    //
-    rcore.CurrentExp.Say(rcore.CallPatMod)
-    //
-  }, func() {}, func() {})
+	//
+	rcore.EntityCore(&ent)
 }

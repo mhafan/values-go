@@ -5,6 +5,7 @@ package rcore
 // ...
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -193,10 +194,33 @@ type Entity struct {
 	IsMaster bool
 
 	//
+	Slave *Entity
+
+	//
 	What, WhatStart, WhatEnd func()
 
 	//
 	SlaveFuncGo func()
+}
+
+// --------------------------------------------------------------------
+//
+func MakeNewEntity() *Entity {
+	//
+	ent := Entity{}
+
+	//
+	ent.MyTurn = ""
+	ent.IsMaster = false
+	ent.Slave = nil
+
+	//
+	ent.What = func() {}
+	ent.WhatStart = func() {}
+	ent.WhatEnd = func() {}
+
+	//
+	return &ent
 }
 
 // --------------------------------------------------------------------
@@ -236,6 +260,12 @@ func EntityStartSequence(ent *Entity, expIDChannel string) {
 
 	//
 	ent.WhatStart()
+
+	//
+	if ent.Slave != nil {
+		//
+		ent.Slave.WhatStart()
+	}
 }
 
 // ----------------------------------------------------------------------
@@ -250,6 +280,12 @@ func EntityEndSequence(ent *Entity, expIDChannel string) {
 
 			//
 			ent.WhatEnd()
+
+			//
+			if ent.Slave != nil {
+				//
+				ent.Slave.WhatEnd()
+			}
 		}
 
 		//
@@ -290,6 +326,9 @@ func EntityCore(ent *Entity) {
 	// initiate the r-sysem library (sender|listener)
 	if ent.IsMaster {
 		//
+		fmt.Println("MASTER: entity init")
+
+		//
 		_rglobal := RServerInit()
 
 		// some errror
@@ -305,9 +344,12 @@ func EntityCore(ent *Entity) {
 	_meFollower := NewFollower()
 
 	//
+	_secOpt := "never never never"
+
+	//
 	if ent.IsMaster {
 		//
-		go ent.SlaveFuncGo()
+		_secOpt = ent.Slave.MyTurn
 	}
 
 	// --------------------------------------------------------------------
@@ -337,6 +379,10 @@ func EntityCore(ent *Entity) {
 			case ent.MyTurn:
 				//
 				EntityRoundSequence(ent, msg.Channel)
+
+			case _secOpt:
+				//
+				EntityRoundSequence(ent.Slave, msg.Channel)
 
 			default:
 

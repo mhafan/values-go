@@ -5,7 +5,6 @@ package main
 
 //
 import (
-	"fmt"
 	"log"
 	"rcore"
 )
@@ -89,18 +88,17 @@ func pmRCoreEnd() {
 }
 
 // ----------------------------------------------------------------------
-// main function (called from main() when arg is -s)
-func pmRCoreMAIN() {
+//
+func pmEntityCFG() *rcore.Entity {
 	//
-	fmt.Println("PM starting")
+	ent := rcore.MakeNewEntity()
 
 	//
-	ent := rcore.Entity{
-		rcore.CallPatMod,
-		false,
-		pmRCoreCycle, pmRCoreStart, pmRCoreEnd,
-		func() {}}
+	ent.MyTurn = rcore.CallPatMod
+	ent.What = pmRCoreCycle
+	ent.WhatStart = pmRCoreStart
+	ent.WhatEnd = pmRCoreEnd
 
 	//
-	rcore.EntityCore(&ent)
+	return ent
 }

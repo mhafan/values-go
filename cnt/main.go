@@ -13,6 +13,7 @@ package main
 //
 import (
 	"flag"
+	"fmt"
 	"log"
 	"rcore"
 )
@@ -72,6 +73,9 @@ func startupWithExperiment() {
 		//
 		_scheduledBolusAt = *flBolusInterval
 	}
+
+	//
+	fmt.Println("CNT Start")
 }
 
 // ----------------------------------------------------------------------
@@ -165,14 +169,18 @@ func main() {
 	flag.Parse()
 
 	//
-	ent := rcore.Entity{
-		rcore.CallCNT,
-		true,
-		cycle,
-		startupWithExperiment,
-		endWithExperiment,
-		pmRCoreMAIN}
+	ent := rcore.MakeNewEntity()
+
+	//
+	ent.MyTurn = rcore.CallCNT
+	ent.IsMaster = true
+	ent.What = cycle
+	ent.WhatStart = startupWithExperiment
+	ent.WhatEnd = endWithExperiment
+
+	//
+	ent.Slave = pmEntityCFG()
 
 	// start listening CallCNT message ("CNT")
-	rcore.EntityCore(&ent)
+	rcore.EntityCore(ent)
 }
