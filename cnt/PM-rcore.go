@@ -14,6 +14,13 @@ import (
 var rsims *rcore.SIMS = nil
 
 // ----------------------------------------------------------------------
+//
+func pmTotalRecoveryPredicate(sims *rcore.SIMS) bool {
+	//
+	return sims.TOF0 < 95
+}
+
+// ----------------------------------------------------------------------
 // For every cycle of distributed simulation.
 func pmRCoreCycle() {
 	//
@@ -40,15 +47,22 @@ func pmRCoreCycle() {
 	//
 	rsims = rsims.SimSteps(_c.Mtime)
 
+	//
+	trec := rsims.Clone().SimStepsWhile(pmTotalRecoveryPredicate)
+
+	//
+	log.Println("TREC ", trec.Time)
+
 	// --------------------------------------------------------------------
 	//
 	_c.TOF = rsims.TOF0
 	_c.PTC = 0
 	_c.Cinp = rsims.YROC[1]
 	_c.ConsumedTotal += rsims.BolusConsumptionML
+	_c.RecoveryTime = (trec.Time - rsims.Time)
 
 	//
-	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp", "ConsumedTotal"}, false)
+	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp", "ConsumedTotal", "RecoveryTime"}, false)
 
 	//
 	_c.Say(rcore.CallSensor)

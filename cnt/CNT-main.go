@@ -27,6 +27,10 @@ var flBolusAmount = flag.Int("B", 5, "Bolus volume [mL of solution]")
 var flDefaultBehavior = flag.Bool("X", false, "Default PUMP/Cuff")
 
 // ----------------------------------------------------------------------
+//
+var _decContext *DecContext = nil
+
+// ----------------------------------------------------------------------
 // state of the experiment:
 // time of the last bolus
 var _lastTimeBolus = 0
@@ -44,23 +48,9 @@ func resetState() {
 	_lastTimeBolus = 0
 	_scheduledBolusAt = -1
 	_initialBolusGiven = false
-}
 
-// ----------------------------------------------------------------------
-// Initil bolus as defined by manufacturer
-func initialBolus(drug string, wkg int) rcore.Volume {
 	//
-	switch drug {
-	case rcore.DrugRocuronium:
-		// 0.6 mg per [kg] of patient's weight
-		return rcore.RocWSOL(rcore.Weight{0.6 * 100.0, rcore.Mg}).In(rcore.ML)
-	case rcore.DrugCisatracurium:
-		// TODO
-		return rcore.Volume{0, rcore.ML}
-	}
-
-	// default value if drug is set incorrectly
-	return rcore.Volume{0, rcore.ML}
+	_decContext = nil
 }
 
 // ----------------------------------------------------------------------
@@ -74,6 +64,9 @@ func startupWithExperiment() {
 		//
 		_scheduledBolusAt = *flBolusInterval
 	}
+
+	//
+	_decContext = MakeDecContext()
 
 	//
 	fmt.Println("CNT Start")
@@ -122,7 +115,7 @@ func regulationInDirectMode(_r *rcore.Exprec) bool {
 		}
 
 		// initial bolus in recommended volume 0.6mg/kg
-		_r.Bolus = int(initialBolus(_r.Drug, _r.Weight).Value)
+		_r.Bolus = int(rcore.InitialBolus(_r.Drug, _r.Weight, 1.0).Value)
 		_initialBolusGiven = true
 
 		//
@@ -166,12 +159,32 @@ func cycle() {
 		return
 	}
 
+	//
+	rcore.CurrentExp.Bolus = 0
+	rcore.CurrentExp.Infusion = 0
+
 	// --------------------------------------------------------------------
 	// step of regulation in simple/direct regime
-	if regulationInDirectMode(rcore.CurrentExp) == true {
-		// update bolus/infusion
-		rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
+	/*
+		if regulationInDirectMode(rcore.CurrentExp) == true {
+			// update bolus/infusion
+			rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
+		}*/
+
+	// --------------------------------------------------------------------
+	//
+	dec := _decContext.decision(rcore.CurrentExp, rsims)
+
+	// --------------------------------------------------------------------
+	//
+	if dec.BolusML > 0 || dec.InfusionML > 0 {
+		//
+		rcore.CurrentExp.Bolus = dec.BolusML
+		rcore.CurrentExp.Infusion = dec.InfusionML
 	}
+
+	//
+	rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
 
 	//
 	rcore.CurrentExp.Say(rcore.CallPump)

@@ -53,6 +53,13 @@ func printState(c *rcore.Exprec) {
 //
 func printCSV(file *os.File, c *rcore.Exprec) {
 	//
+	getc := c.CsvExport()
+
+	file.WriteString(getc)
+	file.WriteString("\n")
+
+	//
+	fmt.Println(getc)
 }
 
 // --------------------------------------------------------------------
@@ -72,16 +79,22 @@ func main() {
 
 	// --------------------------------------------------------------------
 	//
-	csv, csvError := os.Create("out.csv")
-
-	//
-	defer csv.Close()
+	csvfile, csvError := os.Create("out.csv")
 
 	//
 	if csvError != nil {
 		//
 		log.Println("Creating output CSV failed")
+
+		//
+		os.Exit(-2)
 	}
+
+	//
+	defer csvfile.Close()
+
+	//
+	csvfile.WriteString(rcore.CsvHeader())
 
 	// --------------------------------------------------------------------
 	// initiate the r-sysem library (sender|listener)
@@ -199,7 +212,7 @@ func main() {
 
 		//
 		printState(rcore.CurrentExp)
-		printCSV(csv, rcore.CurrentExp)
+		printCSV(csvfile, rcore.CurrentExp)
 
 		// ------------------------------------------------------------------
 		// next cycle, next time moment

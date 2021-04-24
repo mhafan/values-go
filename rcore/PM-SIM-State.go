@@ -8,6 +8,11 @@ type COMP_X [3 + 1]Double
 var _TOFbounds = Bounds{0, 100}
 
 // ----------------------------------------------------------------------
+// Simulation Predicate
+// SIMS -> bool
+type SimPredicate = func(sim *SIMS) bool
+
+// ----------------------------------------------------------------------
 // Simulation state:
 // ----------------------------------------------------------------------
 type SIMS struct {
@@ -26,8 +31,9 @@ type SIMS struct {
 
 	// --------------------------------------------------------------------
 	// Continuous Simulator state variables (integrators)
-	YROC    COMP_X
-	RocHill Hill
+	YROC     COMP_X
+	CinpStat MStat
+	RocHill  Hill
 
 	//
 	Effect Double
@@ -57,12 +63,30 @@ func EmptySIMS() *SIMS {
 
 	//
 	out.BolusConsumptionML = 0
+	out.CinpStat.Reset()
 
 	//
 	out.YROC = COMP_X{0, 0, 0, 0}
 	out.Effect = 0
 	out.TOF0 = 0
 	out.RocHill = RocDefHill()
+
+	//
+	return &out
+}
+
+// ----------------------------------------------------------------------
+//
+func (r *SIMS) Cinp() Double {
+	//
+	return r.YROC[1]
+}
+
+// ----------------------------------------------------------------------
+//
+func (r *SIMS) Clone() *SIMS {
+	//
+	out := *r
 
 	//
 	return &out
@@ -85,6 +109,7 @@ func (r *SIMS) UpdateFrom(e *Exprec) {
 	r.Infusion = Volume{Double(e.Infusion), ML}
 
 	r.BolusConsumptionML = 0
+	r.CinpStat.Reset()
 
 	//
 	if e.EC50 > 0 {
@@ -133,6 +158,22 @@ func (from *SIMS) SimSteps(till int) *SIMS {
 			//
 			break
 		}
+	}
+
+	//
+	return from
+}
+
+// --------------------------------------------------------------------
+//
+func (from *SIMS) SimStepsWhile(pred SimPredicate) *SIMS {
+	// reach Mtime in 1s simulation steps
+	for pred(from) {
+		// h = 1s, continuous simulation step
+		from.RocSimStep()
+
+		//
+		from = from.Next1S()
 	}
 
 	//

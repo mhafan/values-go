@@ -4,6 +4,7 @@ package rcore
 // --------------------------------------------------------------------
 // ...
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gomodule/redigo/redis"
@@ -90,6 +91,7 @@ type Exprec struct {
 	// concentration in blood plasma (C0)
 	// [ug/mL]
 	Cinp Double
+
 	// estimated TOF and PTC
 	TOF int
 	PTC int
@@ -107,6 +109,12 @@ type Exprec struct {
 	// PM works in [s], 1 second time granularity
 	Mtime int
 	Cycle int
+
+	// ----------------------------------------------------------------
+	// To be added
+	// - weight coefficient for the initial bolus
+	// <0, xx>
+	WCoef Double
 }
 
 // --------------------------------------------------------------------
@@ -128,6 +136,23 @@ func NewExpID(testcase string) string {
 func MakeExpID(vn string) *Exprec {
 	//
 	return &Exprec{Varname: vn}
+}
+
+// --------------------------------------------------------------------
+//
+func CsvHeader() string {
+	//
+	return "Cycle,Mtime,Bolus,Infusion,Cinp,TOF,PTC,Consumed,RecoveryTime\n"
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) CsvExport() string {
+	//
+	out := fmt.Sprintf("%d,%d,%d,%d,%.2f,%d,%d,%.2f,%d", r.Cycle, r.Mtime, r.Bolus, r.Infusion, r.Cinp, r.TOF, r.PTC, r.ConsumedTotal, r.RecoveryTime)
+
+	//
+	return out
 }
 
 // --------------------------------------------------------------------
