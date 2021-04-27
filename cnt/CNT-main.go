@@ -14,7 +14,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"rcore"
 )
 
@@ -24,6 +23,8 @@ import (
 // then in "flBolusInterval" intervals, bolus "flBolusAmount"
 var flBolusInterval = flag.Int("b", 200, "Interval between boluses [s]")
 var flBolusAmount = flag.Int("B", 5, "Bolus volume [mL of solution]")
+
+// bypass PUMP & SENSOR
 var flDefaultBehavior = flag.Bool("X", false, "Default PUMP/Cuff")
 
 // ----------------------------------------------------------------------
@@ -76,122 +77,93 @@ func startupWithExperiment() {
 // do on END message (closing the experiment)
 func endWithExperiment() {
 	// nothing special
+	resetState()
 }
 
 // ----------------------------------------------------------------------
-// Direct MODE:
-// time == 0 => INITIAL bolus
-// intervals
-func regulationInDirectMode(_r *rcore.Exprec) bool {
-	// by defualt, set both zero
-	_r.Bolus = 0
-	_r.Infusion = 0
-
+// reload CNTStrategy attributes depending on the current strategy
+// (saving comp time when accessing REDIS)
+func cycleReloadCNTStrategyArgs() {
 	//
-	var _doIBolus = false
-	var _doRBolus = false
-
+	switch rcore.CurrentExp.CNTStrategy {
 	//
-	switch _r.CNTStrategy {
+	case rcore.CNTStratNone:
+		//
 	case rcore.CNTStratBasic:
-		_doIBolus = true
-		_doRBolus = true
-
-	case rcore.CNTStratIBolus:
-		_doIBolus = true
+		//
+		rcore.EntityExpRecReload([]string{"repeStep", "repeBolus"})
+		//
+	case rcore.CNTStratFWSim:
+		//
+		rcore.EntityExpRecReload([]string{"fwRange"})
 	}
-
-	// --------------------------------------------------------------------
-	// time == 0 || Cycle == 0
-	// --------------------------------------------------------------------
-	if _r.Mtime <= 0 || _r.Cycle == 0 && _doIBolus {
-		//
-		if _initialBolusGiven == true {
-			//
-			log.Println("Will not set the initial bolus multiple times!")
-
-			// error
-			return false
-		}
-
-		// initial bolus in recommended volume 0.6mg/kg
-		_r.Bolus = int(rcore.InitialBolus(_r.Drug, _r.Weight, 1.0).Value)
-		_initialBolusGiven = true
-
-		//
-		log.Println("CNT:initial bolus [mL]: ", _r.Bolus)
-
-		//
-		return true
-	}
-
-	// --------------------------------------------------------------------
-	// repetitive bolus, if enabled:
-	// the time has reached scheduled moment
-	if _r.Mtime >= _scheduledBolusAt && _scheduledBolusAt > 0 && _doRBolus {
-		// now
-		_lastTimeBolus = _r.Mtime
-		// schedule the next moment
-		_scheduledBolusAt = _r.Mtime + (*flBolusInterval)
-		// set the bolus
-		_r.Bolus = *flBolusAmount
-
-		//
-		log.Println("CNT:repetitive bolus [mL]:", _r.Bolus, " time=", _r.Mtime)
-
-		//
-		return true
-	}
-
-	//
-	return true
 }
 
 // ----------------------------------------------------------------------
 // Regulation cycle =>
 // 1) direct mode
 // 2) feedback mode
+// ----------------------------------------------------------------------
+// it needs to refresh data records:
+// mtime/cycle
+// CNTstrategy
+// CNTstrategy args
 func cycle() {
+	// pass the token
+	defer rcore.CurrentExp.Say(rcore.CallPump)
+
 	// --------------------------------------------------------------------
-	// update the exp variable, rcore.CurrentExp
+	// ... first update
+	if rcore.EntityExpRecReload([]string{"CNTStrategy"}) == false {
+		//
+		return
+	}
+
+	// strategy = none, do NOTHING
+	if rcore.CurrentExp.CNTStrategy == rcore.CNTStratNone {
+		//
+		return
+	}
+
+	// --------------------------------------------------------------------
+	// otherwise, CNT should make some decision
 	if rcore.EntityExpRecReload([]string{"cycle", "mtime"}) == false {
 		//
 		return
 	}
 
-	//
+	// first of all, clear both outputs
 	rcore.CurrentExp.Bolus = 0
 	rcore.CurrentExp.Infusion = 0
 
-	// --------------------------------------------------------------------
-	// step of regulation in simple/direct regime
-	/*
-		if regulationInDirectMode(rcore.CurrentExp) == true {
-			// update bolus/infusion
-			rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
-		}*/
+	// load additional attributes for control algorithms
+	cycleReloadCNTStrategyArgs()
 
 	// --------------------------------------------------------------------
-	//
+	// call decision making procedure where it should branch further
 	dec := _decContext.decision(rcore.CurrentExp, rsims)
 
 	// --------------------------------------------------------------------
-	//
+	// if there is an nonzero output, write it to data rec
 	if dec.BolusML > 0 || dec.InfusionML > 0 {
 		//
 		rcore.CurrentExp.Bolus = dec.BolusML
 		rcore.CurrentExp.Infusion = dec.InfusionML
+
+		//
+		_decContext.LastNonzero = &dec
 	}
 
 	//
-	rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
+	_decContext.LastDecision = &dec
 
-	//
-	rcore.CurrentExp.Say(rcore.CallPump)
+	// update the central data record
+	rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
 }
 
 // ----------------------------------------------------------------------
-//
+// Bypassing PUMP and SENSOR
+// (if promp arg -X entered)
 func PumpCuffDefaultBehavior(msg rcore.Rmsg) {
 	//
 	switch msg.Message {
@@ -206,29 +178,36 @@ func PumpCuffDefaultBehavior(msg rcore.Rmsg) {
 }
 
 // ----------------------------------------------------------------------
-//
+// well, main routine
 func main() {
-	//
+	// read and analyse input prompt args
 	flag.Parse()
 
-	//
+	// system data record describing an entity within the HiL
+	// CNT, in this case
 	ent := rcore.MakeNewEntity()
 
-	//
+	// the entity gets activated on msg:
 	ent.MyTurn = rcore.CallCNT
-	ent.What = cycle
+
+	// link 3 procedures implementing
+	// START command
+	// CNT command (for each cycle)
+	// END command
 	ent.WhatStart = startupWithExperiment
+	ent.What = cycle
 	ent.WhatEnd = endWithExperiment
 
-	//
+	// secondary entities (PATMOD)
 	ent.Slave = pmEntityCFG()
 
-	//
+	// bypass PUMP & SENSOR if enabled
 	if *flDefaultBehavior {
 		//
 		ent.WhatDefault = PumpCuffDefaultBehavior
 	}
 
 	// start listening CallCNT message ("CNT")
+	// runLoop
 	rcore.EntityCore(ent)
 }

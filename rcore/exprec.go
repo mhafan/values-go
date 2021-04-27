@@ -31,9 +31,9 @@ const (
 	DrugCisatracurium = "CIS"
 
 	//
-	CNTStratBasic      = "basic"
-	CNTStratSimulation = "sim"
-	CNTStratIBolus     = "ibolus"
+	CNTStratBasic = "basic"
+	CNTStratFWSim = "fwsim"
+	CNTStratNone  = "none"
 
 	//
 	SexMale   = "male"
@@ -59,11 +59,15 @@ type Exprec struct {
 	// for future use
 	Age int
 	// for future use
-	TargetTOF int
-	TargetPTC int
+	TargetCinpLow Double
+	TargetCinpHi  Double
 	// new added: regime of infusion
 	// { none, rboluses (default) }
 	CNTStrategy string
+	RepeStep    int
+	RepeBolus   int
+	FwRange     int
+	IbolusMg    Double
 
 	// ----------------------------------------------------------------
 	// Decisions made by CNT (CNT can be disabled and values set from TCM)
@@ -114,7 +118,7 @@ type Exprec struct {
 	// To be added
 	// - weight coefficient for the initial bolus
 	// <0, xx>
-	WCoef Double
+	Wcoef Double
 }
 
 // --------------------------------------------------------------------
@@ -224,6 +228,10 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 	r.Save_d("EC50", r.EC50, keys, all)
 	r.Save_d("Cinp", r.Cinp, keys, all)
 	r.Save_d("ConsumedTotal", r.ConsumedTotal, keys, all)
+	r.Save_d("targetCinpHi", r.TargetCinpHi, keys, all)
+	r.Save_d("targetCinpLow", r.TargetCinpLow, keys, all)
+	r.Save_d("wcoef", r.Wcoef, keys, all)
+	r.Save_d("ibolusMg", r.IbolusMg, keys, all)
 
 	//
 	r.Save_i("bolus", r.Bolus, keys, all)
@@ -238,11 +246,14 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 
 	r.Save_i("unitVd", r.UnitVd, keys, all)
 	r.Save_i("absoluteVd", r.AbsoluteVd, keys, all)
-	r.Save_i("targetTOF", r.TargetTOF, keys, all)
-	r.Save_i("targetPTC", r.TargetPTC, keys, all)
 	r.Save_i("TOF", r.TOF, keys, all)
 	r.Save_i("PTC", r.PTC, keys, all)
 	r.Save_i("RecoveryTime", r.RecoveryTime, keys, all)
+
+	//
+	r.Save_i("repeStep", r.RepeStep, keys, all)
+	r.Save_i("repeBolus", r.RepeBolus, keys, all)
+	r.Save_i("fwRange", r.FwRange, keys, all)
 
 	//
 	return true
@@ -301,16 +312,22 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	r.Load_i("cycle", &r.Cycle, keys, all)
 	r.Load_i("unitVd", &r.Bolus, keys, all)
 	r.Load_i("absoluteVd", &r.AbsoluteVd, keys, all)
-	r.Load_i("targetTOF", &r.TargetTOF, keys, all)
-	r.Load_i("targetPTC", &r.TargetPTC, keys, all)
 	r.Load_i("TOF", &r.TOF, keys, all)
 	r.Load_i("PTC", &r.PTC, keys, all)
 	r.Load_i("RecoveryTime", &r.RecoveryTime, keys, all)
+
+	r.Load_i("repeStep", &r.RepeStep, keys, all)
+	r.Load_i("repeBolus", &r.RepeBolus, keys, all)
+	r.Load_i("fwRange", &r.FwRange, keys, all)
 
 	//
 	r.Load_d("EC50", &r.EC50, keys, all)
 	r.Load_d("Cinp", &r.Cinp, keys, all)
 	r.Load_d("ConsumedTotal", &r.ConsumedTotal, keys, all)
+	r.Load_d("targetCinpHi", &r.TargetCinpHi, keys, all)
+	r.Load_d("targetCinpLow", &r.TargetCinpLow, keys, all)
+	r.Load_d("wcoef", &r.Wcoef, keys, all)
+	r.Load_d("ibolusMg", &r.IbolusMg, keys, all)
 
 	//
 	return true

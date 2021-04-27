@@ -179,3 +179,10 @@ func (from *SIMS) SimStepsWhile(pred SimPredicate) *SIMS {
 	//
 	return from
 }
+
+// ----------------------------------------------------------------------
+//
+func (sims *SIMS) CinpAboveLow(expID *Exprec) bool {
+	//
+	return sims.Cinp() >= expID.TargetCinpLow
+}

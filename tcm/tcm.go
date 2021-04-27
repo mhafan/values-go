@@ -33,7 +33,21 @@ func mydefs(_c *rcore.Exprec) {
 
 	//
 	_c.Drug = rcore.DrugRocuronium
-	_c.CNTStrategy = rcore.CNTStratIBolus
+	_c.IbolusMg = 0.6
+	_c.Wcoef = 1.0
+	_c.CNTStrategy = rcore.CNTStratNone
+
+	//
+	_c.RepeBolus = 2
+	_c.RepeStep = 10 * 60
+	_c.FwRange = 3 * 60
+
+	//
+	_c.TargetCinpLow = 2.0
+	_c.TargetCinpHi = 5
+
+	//
+	_c.Bolus = 1
 }
 
 // --------------------------------------------------------------------
