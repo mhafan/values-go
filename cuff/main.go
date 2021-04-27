@@ -12,7 +12,7 @@ import (
 // 2) add some noise if configured
 func cuffMain() {
 	// next in the loop: TCM
-	rcore.CurrentExp.Say(rcore.CallTCM)
+	defer rcore.CurrentExp.Say(rcore.CallTCM)
 }
 
 // ----------------------------------------------------------------------
@@ -22,13 +22,16 @@ func main() {
 	//
 	flag.Parse()
 
-	ent := rcore.Entity{rcore.CallSensor, true, nil,
-		cuffMain,
-		func() {}, func() {}}
+	//
+	ent := rcore.MakeNewEntity()
+
+	//
+	ent.MyTurn = rcore.CallSensor
+	ent.What = cuffMain
 
 	// --------------------------------------------------------------------
 	// listening on channels vm.*
 	// - standard behavior on start/end
 	// - SENSOR -> my action
-	rcore.EntityCore(&ent)
+	rcore.EntityCore(ent)
 }

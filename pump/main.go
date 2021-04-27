@@ -34,7 +34,7 @@ func pumpMain() {
 	    // TODO:
 	  }*/
 
-	rcore.CurrentExp.Say(rcore.CallPatMod)
+	defer rcore.CurrentExp.Say(rcore.CallPatMod)
 }
 
 // ----------------------------------------------------------------------
@@ -43,11 +43,13 @@ func main() {
 	//
 	flag.Parse()
 
-	ent := rcore.Entity{
-		rcore.CallPump, true, nil,
-		pumpMain,
-		func() {}, func() {}}
+	//
+	ent := rcore.MakeNewEntity()
 
 	//
-	rcore.EntityCore(&ent)
+	ent.MyTurn = rcore.CallPump
+	ent.What = pumpMain
+
+	//
+	rcore.EntityCore(ent)
 }

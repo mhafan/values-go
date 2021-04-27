@@ -24,6 +24,9 @@ func pmTotalRecoveryPredicate(sims *rcore.SIMS) bool {
 // For every cycle of distributed simulation.
 func pmRCoreCycle() {
 	//
+	defer rcore.CurrentExp.Say(rcore.CallSensor)
+
+	//
 	tol := []string{"mtime", "cycle", "bolus", "infusion"}
 
 	// --------------------------------------------------------------------
@@ -63,9 +66,6 @@ func pmRCoreCycle() {
 
 	//
 	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp", "ConsumedTotal", "RecoveryTime"}, false)
-
-	//
-	_c.Say(rcore.CallSensor)
 }
 
 // ----------------------------------------------------------------------
