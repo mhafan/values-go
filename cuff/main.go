@@ -1,34 +1,37 @@
 package main
 
 //
-import "flag"
-import "rcore"
+import (
+	"flag"
+	"rcore"
+)
 
 // ----------------------------------------------------------------------
 // CUF Behavior:
 // 1) read TOF values set by PatMod
 // 2) add some noise if configured
 func cuffMain() {
-  //
+	// next in the loop: TCM
+	defer rcore.CurrentExp.Say(rcore.CallTCM)
 }
 
 // ----------------------------------------------------------------------
 //
 func main() {
-  // --------------------------------------------------------------------
-  //
-  flag.Parse()
+	// --------------------------------------------------------------------
+	//
+	flag.Parse()
 
-  // --------------------------------------------------------------------
-  // listening on channels vm.*
-  // - standard behavior on start/end
-  // - SENSOR -> my action
-  rcore.EntityCore(rcore.CallSensor, func() {
-    // do your job
-    cuffMain()
+	//
+	ent := rcore.MakeNewEntity()
 
-    // next in the loop: TCM
-    rcore.CurrentExp.Say(rcore.CallTCM)
-    //
-  }, func() {}, func() {})
+	//
+	ent.MyTurn = rcore.CallSensor
+	ent.What = cuffMain
+
+	// --------------------------------------------------------------------
+	// listening on channels vm.*
+	// - standard behavior on start/end
+	// - SENSOR -> my action
+	rcore.EntityCore(ent)
 }

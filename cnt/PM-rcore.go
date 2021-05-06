@@ -10,28 +10,22 @@ import (
 )
 
 // ----------------------------------------------------------------------
-// Current patient and current Simulation state
-var rpatient *Patient = nil
-var rsims *SIMS = nil
+// Current current Simulation state
+var rsims *rcore.SIMS = nil
 
 // ----------------------------------------------------------------------
-// rcore.Exprec transger to SIMS (patmod internal data struct)
-func (r *SIMS) updateFrom(e *rcore.Exprec) {
-	// patient info
-	r.patient.weightKG = rcore.Double(e.Weight)
-	r.patient.age = e.Age
-	r.patient.sex = sexMale
-	// TODO: Vd_kg, ec50
-	// r.patient.rocCFG
-
+//
+func pmTotalRecoveryPredicate(sims *rcore.SIMS) bool {
 	//
-	r.bolus = rcore.Volume{rcore.Double(e.Bolus), rcore.ML}
-	r.infusion = rcore.Volume_0()
+	return sims.TOF0 < 95
 }
 
 // ----------------------------------------------------------------------
 // For every cycle of distributed simulation.
-func rserverCycle() {
+func pmRCoreCycle() {
+	//
+	defer rcore.CurrentExp.Say(rcore.CallSensor)
+
 	//
 	tol := []string{"mtime", "cycle", "bolus", "infusion"}
 
@@ -47,50 +41,43 @@ func rserverCycle() {
 
 	// --------------------------------------------------------------------
 	// REDIS record -> SIMS (patmod simulation state)
-	rsims.updateFrom(_c)
+	rsims.UpdateFrom(_c)
 
 	//
 	log.Println("PMA; cycle: ", _c.Cycle, "mtime", _c.Mtime,
-		"rtime", rsims.time, "bolus ", _c.Bolus, " ", rsims.bolus)
+		"rtime", rsims.Time, "bolus ", rsims.Bolus.Value, " ", rsims.Bolus)
+
+	//
+	rsims = rsims.SimSteps(_c.Mtime)
+
+	//
+	trec := rsims.Clone().SimStepsWhile(pmTotalRecoveryPredicate)
+
+	//
+	log.Println("TREC ", trec.Time)
 
 	// --------------------------------------------------------------------
-	// reach Mtime in 1s simulation steps
-	for rsims.time <= _c.Mtime {
-		// h = 1s, continuous simulation step
-		rsims.rocSimStep()
-
-		//
-		log.Println("HH ", rsims.time, " ", rsims.rocs.yROC, " ", rsims.rocs.TOF0,
-			rsims.rocs.effect)
-
-		//
-		_c.TOF = rsims.rocs.TOF0
-		_c.PTC = 0
-
-		// +1s
-		rsims = rsims.next1S()
-	}
+	//
+	_c.TOF = rsims.TOF0
+	_c.PTC = 0
+	_c.Cinp = rsims.YROC[1]
+	_c.ConsumedTotal += rsims.BolusConsumptionML
+	_c.RecoveryTime = (trec.Time - rsims.Time)
 
 	//
-	rcore.CurrentExp.Save([]string{"TOF", "PTC"}, false)
-
-	//
-	_c.Say(rcore.CallSensor)
+	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp", "ConsumedTotal", "RecoveryTime"}, false)
 }
 
 // ----------------------------------------------------------------------
 // vm.X.Y -> START
 // --- Initialization of new experiment
-func rserverStart() {
+func pmRCoreStart() {
 	//
-	rpatient = NewPatient()
+	rsims = rcore.EmptySIMS()
 
 	//
-	rpatient.setDefaults()
-	rpatient.weightKG = rcore.Double(rcore.CurrentExp.Weight)
-
-	//
-	rsims = emptySIMS(rpatient)
+	rsims.SetupFrom(rcore.CurrentExp)
+	rsims.UpdateFrom(rcore.CurrentExp)
 
 	//
 	log.Println("Starting new patient: ", rsims)
@@ -98,9 +85,8 @@ func rserverStart() {
 
 // ----------------------------------------------------------------------
 // Deallocation of the current experiment
-func rserverEnd() {
+func pmRCoreEnd() {
 	//
-	rpatient = nil
 	rsims = nil
 
 	//
@@ -108,8 +94,17 @@ func rserverEnd() {
 }
 
 // ----------------------------------------------------------------------
-// main function (called from main() when arg is -s)
-func rserverMain() {
+//
+func pmEntityCFG() *rcore.Entity {
 	//
-	rcore.EntityCore(rcore.CallPatMod, rserverCycle, rserverStart, rserverEnd)
+	ent := rcore.MakeNewEntity()
+
+	//
+	ent.MyTurn = rcore.CallPatMod
+	ent.What = pmRCoreCycle
+	ent.WhatStart = pmRCoreStart
+	ent.WhatEnd = pmRCoreEnd
+
+	//
+	return ent
 }
