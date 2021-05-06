@@ -1,1 +1,2 @@
-cnt/cnt -s & cuff/cuff -s & pump/pump -s & 
+# cnt/cnt -s & cuff/cuff -s & pump/pump -s & 
+# cnt/cnt -X &
