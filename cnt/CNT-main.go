@@ -85,6 +85,9 @@ func endWithExperiment() {
 // (saving comp time when accessing REDIS)
 func cycleReloadCNTStrategyArgs() {
 	//
+	rcore.EntityExpRecReload([]string{"targetCinpLow", "targetCinpHi"})
+
+	//
 	switch rcore.CurrentExp.CNTStrategy {
 	//
 	case rcore.CNTStratNone:
