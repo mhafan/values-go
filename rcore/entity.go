@@ -385,7 +385,13 @@ func EntityCore(ent *Entity) {
 
 			default:
 				//
-				ent.WhatDefault(msg)
+				if CurrentExp != nil {
+					//
+					if CurrentExp.ischannel(msg.Channel) {
+						//
+						ent.WhatDefault(msg)
+					}
+				}
 			}
 		}
 	}
