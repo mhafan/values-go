@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"rcore"
 )
 
@@ -57,6 +58,9 @@ func forwardSimulationBolus(fwc FWSim) int {
 
 		// do simulation steps
 		result := insimClone.SimSteps(_t0 + fwc.forwardTime)
+
+		//
+		fmt.Println("FWSIM ", _t0, " ", fwc.forwardTime, " bolus=", sbolus, " ", result)
 
 		//
 		if fwc.pred(result) {
