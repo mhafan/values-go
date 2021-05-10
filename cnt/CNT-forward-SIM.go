@@ -60,7 +60,7 @@ func forwardSimulationBolus(fwc FWSim) int {
 		result := insimClone.SimSteps(_t0 + fwc.forwardTime)
 
 		//
-		fmt.Println("FWSIM ", _t0, " ", fwc.forwardTime, " bolus=", sbolus, " ", result)
+		fmt.Println("FWSIM ", rcore.CurrentExp.TargetCinpLow, " bolus=", sbolus, " ", result)
 
 		//
 		if fwc.pred(result) {
