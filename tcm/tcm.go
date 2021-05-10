@@ -19,10 +19,15 @@ var flSex = flag.String("s", rcore.SexMale, "Sex of patient {male/female}")
 var flAge = flag.Int("A", 42, "Age of patient")
 var flWeight = flag.Int("w", 100, "Weight [kg] of patient")
 
+// --------------------------------------------------------------------
 //
 var flTimeStep = flag.Int("t", 15, "Time step [s]")
 var flTMAX = flag.Int("T", 1000000, "Max Time [s]")
 var flCycles = flag.Int("c", 100000, "Number of cycles")
+
+// --------------------------------------------------------------------
+// control args
+var flCNT_strategy = flag.String("S", "basic", "CNT strategy { none, basic, fwsim }")
 
 // --------------------------------------------------------------------
 //
@@ -35,7 +40,7 @@ func mydefs(_c *rcore.Exprec) {
 	_c.Drug = rcore.DrugRocuronium
 	_c.IbolusMg = 0.6
 	_c.Wcoef = 1.0
-	_c.CNTStrategy = rcore.CNTStratNone
+	_c.CNTStrategy = *flCNT_strategy
 
 	//
 	_c.RepeBolus = 2
