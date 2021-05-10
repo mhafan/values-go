@@ -169,6 +169,12 @@ func cycle() {
 // (if promp arg -X entered)
 func PumpCuffDefaultBehavior(msg rcore.Rmsg) {
 	//
+	if rcore.CurrentExp == nil {
+		//
+		return
+	}
+
+	//
 	switch msg.Message {
 	case rcore.CallPump:
 		//
