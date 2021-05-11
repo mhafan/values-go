@@ -44,17 +44,13 @@ func pmRCoreCycle() {
 	rsims.UpdateFrom(_c)
 
 	//
-	log.Println("PMA; cycle: ", _c.Cycle, "mtime", _c.Mtime,
-		"rtime", rsims.Time, "bolus ", rsims.Bolus.Value, " ", rsims.Bolus)
-
-	//
 	rsims = rsims.SimSteps(_c.Mtime)
 
 	//
-	trec := rsims.Clone().SimStepsWhile(pmTotalRecoveryPredicate)
+	log.Println("CT!!! ", rsims.BolusConsumptionML)
 
 	//
-	log.Println("TREC ", trec.Time)
+	trec := rsims.Clone().SimStepsWhile(pmTotalRecoveryPredicate)
 
 	// --------------------------------------------------------------------
 	//
@@ -63,6 +59,10 @@ func pmRCoreCycle() {
 	_c.Cinp = rsims.YROC[1]
 	_c.ConsumedTotal += rsims.BolusConsumptionML
 	_c.RecoveryTime = (trec.Time - rsims.Time)
+
+	//
+	log.Println("PMA; cycle: ", _c.Cycle, "mtime", _c.Mtime,
+		"rtime", rsims.Time, "bolus ", rsims.Bolus.Value, " ", rsims.Bolus, "ConsT ", _c.ConsumedTotal)
 
 	//
 	rcore.CurrentExp.Save([]string{"TOF", "PTC", "Cinp", "ConsumedTotal", "RecoveryTime"}, false)
