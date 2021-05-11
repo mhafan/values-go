@@ -12,6 +12,7 @@ package main
 
 //
 import (
+	"Values/rcore"
 	"flag"
 	"fmt"
 	"rcore"
@@ -68,6 +69,9 @@ func startupWithExperiment() {
 
 	//
 	_decContext = MakeDecContext()
+
+	//
+	rcore.CurrentExp.ConsumedTotal = 0
 
 	//
 	fmt.Println("CNT Start")
