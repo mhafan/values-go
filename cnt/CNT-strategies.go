@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"rcore"
 )
 
@@ -148,6 +149,9 @@ func (context *DecContext) decision(expID *rcore.Exprec, insim *rcore.SIMS) Deci
 
 		//
 		if ibolus.Value > 0 {
+			//
+			fmt.Println("IBOLUS ", ibolus.Value)
+
 			//
 			out.BolusML = int(ibolus.Value)
 			context.InitialBolusGiven = true

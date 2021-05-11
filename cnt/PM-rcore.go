@@ -47,9 +47,6 @@ func pmRCoreCycle() {
 	rsims = rsims.SimSteps(_c.Mtime)
 
 	//
-	log.Println("CT!!! ", rsims.BolusConsumptionML)
-
-	//
 	trec := rsims.Clone().SimStepsWhile(pmTotalRecoveryPredicate)
 
 	// --------------------------------------------------------------------

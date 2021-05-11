@@ -48,7 +48,7 @@ func mydefs(_c *rcore.Exprec) {
 
 	//
 	_c.RepeBolus = 2
-	_c.RepeStep = 10 * 60
+	_c.RepeStep = 10 * 6000
 	_c.FwRange = *flCNT_forwardRange
 
 	//
