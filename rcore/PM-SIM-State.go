@@ -98,6 +98,8 @@ func (r *SIMS) SetupFrom(e *Exprec) {
 	//
 	r.Drug = e.Drug
 	r.Weight = Weight{float64(e.Weight), Kg}
+
+	//
 	r.VdCentral = VdFor(r.Drug, float64(e.AbsoluteVd), float64(e.UnitVd), r.Weight)
 }
 

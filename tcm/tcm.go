@@ -41,6 +41,8 @@ func mydefs(_c *rcore.Exprec) {
 	_c.IbolusMg = 0.6
 	_c.Wcoef = 1.0
 	_c.CNTStrategy = *flCNT_strategy
+	_c.UnitVd = 38
+	_c.AbsoluteVd = 1000
 
 	//
 	_c.RepeBolus = 2

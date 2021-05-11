@@ -310,7 +310,7 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	r.Load_i("age", &r.Age, keys, all)
 	r.Load_i("mtime", &r.Mtime, keys, all)
 	r.Load_i("cycle", &r.Cycle, keys, all)
-	r.Load_i("unitVd", &r.Bolus, keys, all)
+	r.Load_i("unitVd", &r.UnitVd, keys, all)
 	r.Load_i("absoluteVd", &r.AbsoluteVd, keys, all)
 	r.Load_i("TOF", &r.TOF, keys, all)
 	r.Load_i("PTC", &r.PTC, keys, all)
