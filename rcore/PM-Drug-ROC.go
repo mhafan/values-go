@@ -102,6 +102,9 @@ func (ss *SIMS) RocSimStep() {
 
 		//
 		ss.BolusConsumptionML += ss.Bolus.Value
+
+		//
+		ss.Bolus.Value = 0
 	}
 
 	//
