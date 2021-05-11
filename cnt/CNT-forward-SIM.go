@@ -26,14 +26,14 @@ type FWSim struct {
 
 // ----------------------------------------------------------------------
 //
-func FWSimMake(insim *rcore.SIMS) FWSim {
+func FWSimMake(insim *rcore.SIMS, inexp *rcore.Exprec) FWSim {
 	//
 	out := FWSim{}
 
 	//
 	out.insim = insim
 	out.sbolusMax = 20
-	out.forwardTime = 60 * 5
+	out.forwardTime = inexp.FwRange
 
 	//
 	return out
@@ -60,7 +60,7 @@ func forwardSimulationBolus(fwc FWSim) int {
 		result := insimClone.SimSteps(_t0 + fwc.forwardTime)
 
 		//
-		fmt.Println("FWSIM ", rcore.CurrentExp.TargetCinpLow, " bolus=", sbolus, " ", result)
+		fmt.Println("FWSIM ", rcore.CurrentExp.TargetCinpLow, " bolus=", sbolus, "range", fwc.forwardTime, " ", result)
 
 		//
 		if fwc.pred(result) {

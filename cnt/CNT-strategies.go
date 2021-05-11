@@ -109,7 +109,7 @@ func (context *DecContext) decisionFWSim(expID *rcore.Exprec, insim *rcore.SIMS)
 
 	// ------------------------------------------------------------------
 	// internal state & config
-	fwcfg := FWSimMake(insim)
+	fwcfg := FWSimMake(insim, expID)
 
 	// ------------------------------------------------------------------
 	// default predicate

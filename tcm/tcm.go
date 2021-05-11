@@ -28,6 +28,8 @@ var flCycles = flag.Int("c", 100000, "Number of cycles")
 // --------------------------------------------------------------------
 // control args
 var flCNT_strategy = flag.String("S", "basic", "CNT strategy { none, basic, fwsim }")
+var flCNT_targetLow = flag.Float64("r", 2, "targetCinpLow")
+var flCNT_forwardRange = flag.Int("f", 3*60, "fwsim fwRange [s] forward range")
 
 // --------------------------------------------------------------------
 //
@@ -42,16 +44,16 @@ func mydefs(_c *rcore.Exprec) {
 	_c.Wcoef = 1.0
 	_c.CNTStrategy = *flCNT_strategy
 	_c.UnitVd = 38
-	_c.AbsoluteVd = 1000
+	_c.AbsoluteVd = 0
 
 	//
 	_c.RepeBolus = 2
 	_c.RepeStep = 10 * 60
-	_c.FwRange = 3 * 60
+	_c.FwRange = *flCNT_forwardRange
 
 	//
-	_c.TargetCinpLow = 2.0
-	_c.TargetCinpHi = 5
+	_c.TargetCinpLow = rcore.Double(*flCNT_targetLow)
+	_c.TargetCinpHi = _c.TargetCinpLow + 3.0
 
 	//
 	_c.Bolus = 1
