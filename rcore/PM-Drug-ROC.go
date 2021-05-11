@@ -1,5 +1,7 @@
 package rcore
 
+import "fmt"
+
 // ----------------------------------------------------------------------
 // Transformation W -> V
 func RocWSOL(w Weight) Volume {
@@ -104,7 +106,7 @@ func (ss *SIMS) RocSimStep() {
 		ss.BolusConsumptionML += ss.Bolus.Value
 
 		//
-		ss.Bolus.Value = 0
+		fmt.Println("BOLSTAT ", ss.BolusConsumptionML, ss.Bolus.Value)
 	}
 
 	//
