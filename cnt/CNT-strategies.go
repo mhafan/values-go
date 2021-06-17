@@ -24,14 +24,21 @@ type Decision struct {
 // ----------------------------------------------------------------------
 // Decision context valid during total START->...->END experiment
 type DecContext struct {
+	// ------------------------------------------------------------------
 	// the initial bolus is special
 	// it may be a bigger dosage in order to achieve intubation state
 	InitialBolusGiven bool
 	InitialBolusMTime int
 
+	// ------------------------------------------------------------------
 	// context of the previous decision
 	LastDecision *Decision
 	LastNonzero  *Decision
+
+	// ------------------------------------------------------------------
+	// CNT controls TOF/PTC sensor
+	LastScheduledTOFMeasurement int
+	LastScheduledPTCMeasurement int
 }
 
 // ----------------------------------------------------------------------
@@ -44,6 +51,10 @@ func MakeDecContext() *DecContext {
 	out.InitialBolusGiven = false
 	out.LastDecision = nil
 	out.LastNonzero = nil
+
+	//
+	out.LastScheduledPTCMeasurement = 0
+	out.LastScheduledTOFMeasurement = 0
 
 	//
 	return &out

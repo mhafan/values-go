@@ -2,7 +2,5 @@
     "files.exclude": {
         "**/*.mod": true,
         "**/*.sum": true
-    },
-
-    "go.lintTool": ""
+    }
 }

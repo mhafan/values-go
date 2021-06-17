@@ -122,12 +122,13 @@ type Exprec struct {
 	// == 0, no update
 	// == 1 (bit 0), TOF updated
 	// == 2 (bit 1), PTC updated
-	SensorTOF0   int
-	SensorTOF1   int
-	SensorTOF2   int
-	SensorTOF3   int
-	SensorPTC    int
-	SensorStatus int
+	SensorTOF0    int
+	SensorTOF1    int
+	SensorTOF2    int
+	SensorTOF3    int
+	SensorPTC     int
+	SensorStatus  int
+	SensorCommand int
 
 	// ----------------------------------------------------------------
 	// To be added
@@ -277,6 +278,7 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 	r.Save_i("SensorTOF3", r.SensorTOF3, keys, all)
 	r.Save_i("SensorPTC", r.SensorPTC, keys, all)
 	r.Save_i("SensorStatus", r.SensorStatus, keys, all)
+	r.Save_i("SensorCommand", r.SensorCommand, keys, all)
 
 	//
 	return true
@@ -359,6 +361,7 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	r.Load_i("SensorTOF3", &r.SensorTOF3, keys, all)
 	r.Load_i("SensorPTC", &r.SensorPTC, keys, all)
 	r.Load_i("SensorStatus", &r.SensorStatus, keys, all)
+	r.Load_i("SensorCommand", &r.SensorCommand, keys, all)
 
 	//
 	return true

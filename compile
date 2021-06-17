@@ -1,4 +1,7 @@
-for i in cnt cuff pump tcm
+##go env GO111MODULE=on
+export GO111MODULE=on
+
+for i in cnt tcm
 do
 cd $i
 go build .
