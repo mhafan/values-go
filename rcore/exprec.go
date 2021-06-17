@@ -96,6 +96,7 @@ type Exprec struct {
 	// [ug/mL]
 	Cinp Double
 
+	// ----------------------------------------------------------------
 	// estimated TOF and PTC
 	TOF int
 	PTC int
@@ -113,6 +114,20 @@ type Exprec struct {
 	// PM works in [s], 1 second time granularity
 	Mtime int
 	Cycle int
+
+	// ----------------------------------------------------------------
+	// Outputs from TOF/PTC sensor
+	// 4x values of TOF, PTC value
+	// Status:
+	// == 0, no update
+	// == 1 (bit 0), TOF updated
+	// == 2 (bit 1), PTC updated
+	SensorTOF0   int
+	SensorTOF1   int
+	SensorTOF2   int
+	SensorTOF3   int
+	SensorPTC    int
+	SensorStatus int
 
 	// ----------------------------------------------------------------
 	// To be added
@@ -256,6 +271,14 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 	r.Save_i("fwRange", r.FwRange, keys, all)
 
 	//
+	r.Save_i("SensorTOF0", r.SensorTOF0, keys, all)
+	r.Save_i("SensorTOF1", r.SensorTOF1, keys, all)
+	r.Save_i("SensorTOF2", r.SensorTOF2, keys, all)
+	r.Save_i("SensorTOF3", r.SensorTOF3, keys, all)
+	r.Save_i("SensorPTC", r.SensorPTC, keys, all)
+	r.Save_i("SensorStatus", r.SensorStatus, keys, all)
+
+	//
 	return true
 }
 
@@ -328,6 +351,14 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	r.Load_d("targetCinpLow", &r.TargetCinpLow, keys, all)
 	r.Load_d("wcoef", &r.Wcoef, keys, all)
 	r.Load_d("ibolusMg", &r.IbolusMg, keys, all)
+
+	//
+	r.Load_i("SensorTOF0", &r.SensorTOF0, keys, all)
+	r.Load_i("SensorTOF1", &r.SensorTOF1, keys, all)
+	r.Load_i("SensorTOF2", &r.SensorTOF2, keys, all)
+	r.Load_i("SensorTOF3", &r.SensorTOF3, keys, all)
+	r.Load_i("SensorPTC", &r.SensorPTC, keys, all)
+	r.Load_i("SensorStatus", &r.SensorStatus, keys, all)
 
 	//
 	return true

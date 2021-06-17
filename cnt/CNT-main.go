@@ -185,7 +185,7 @@ func PumpCuffDefaultBehavior(msg rcore.Rmsg) {
 
 	case rcore.CallSensor:
 		//
-		rcore.CurrentExp.Say(rcore.CallTCM)
+		CNTCuffMain(msg)
 	}
 }
 
