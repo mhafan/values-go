@@ -19,6 +19,9 @@ type Decision struct {
 	// [mL] of solution
 	InfusionML int
 	BolusML    int
+
+	//
+	SensorCommand int
 }
 
 // ----------------------------------------------------------------------
@@ -143,6 +146,13 @@ func (context *DecContext) decisionFWSim(expID *rcore.Exprec, insim *rcore.SIMS)
 }
 
 // ----------------------------------------------------------------------
+//
+func (context *DecContext) cuffControllingDecision(expID *rcore.Exprec, insim *rcore.SIMS, decision *Decision) {
+	//
+	decision.SensorCommand = rcore.CuffCommandPTC + rcore.CuffCommandTOF
+}
+
+// ----------------------------------------------------------------------
 // Decision branching point:
 // input:
 // -- current exprec
@@ -167,6 +177,8 @@ func (context *DecContext) decision(expID *rcore.Exprec, insim *rcore.SIMS) Deci
 			out.BolusML = int(ibolus.Value)
 			context.InitialBolusGiven = true
 			context.InitialBolusMTime = expID.Mtime
+			//
+			context.cuffControllingDecision(expID, insim, &out)
 
 			//
 			return out
@@ -185,6 +197,9 @@ func (context *DecContext) decision(expID *rcore.Exprec, insim *rcore.SIMS) Deci
 		//
 		out = context.decisionFWSim(expID, insim)
 	}
+
+	//
+	context.cuffControllingDecision(expID, insim, &out)
 
 	//
 	return out

@@ -8,12 +8,19 @@
 // ------ (flBolusAmount)
 // ----------------------------------------------------------------------
 
+// ----------------------------------------------------------------------
+// TODOs:
+// - error/warning system between NMTSimulator and NMTSimulator-TCM
+// - CNT - scheduling TOF/PTC measurement pattern
+// - CNT - generating TOF/PTC correction for PM
+
 package main
 
 //
 import (
 	"flag"
 	"fmt"
+	"log"
 	"rcore"
 )
 
@@ -24,32 +31,18 @@ import (
 var flBolusInterval = flag.Int("b", 200, "Interval between boluses [s]")
 var flBolusAmount = flag.Int("B", 5, "Bolus volume [mL of solution]")
 
+// ----------------------------------------------------------------------
 // bypass PUMP & SENSOR
 var flDefaultBehavior = flag.Bool("X", false, "Default PUMP/Cuff")
 
 // ----------------------------------------------------------------------
-//
+// The complete information about the CNT's internal state
+// != nil when any experiment initiated and running
 var _decContext *DecContext = nil
 
 // ----------------------------------------------------------------------
-// state of the experiment:
-// time of the last bolus
-var _lastTimeBolus = 0
-
-// time of the next scheduled bolus
-var _scheduledBolusAt = -1
-
-// was any initial bolus given
-var _initialBolusGiven = false
-
-// ----------------------------------------------------------------------
-//
+// clear and reset the internal state
 func resetState() {
-	//
-	_lastTimeBolus = 0
-	_scheduledBolusAt = -1
-	_initialBolusGiven = false
-
 	//
 	_decContext = nil
 }
@@ -57,20 +50,14 @@ func resetState() {
 // ----------------------------------------------------------------------
 // with every START msg, do reset internals
 func startupWithExperiment() {
-	//
+	// remove the previous one
 	resetState()
 
-	// schedule next bolus
-	if *flBolusInterval > 0 {
-		//
-		_scheduledBolusAt = *flBolusInterval
-	}
-
-	//
+	// start a new context descriptor
 	_decContext = MakeDecContext()
 
-	//
-	rcore.CurrentExp.ConsumedTotal = 0
+	// initiate some REDIS record variables
+	rcore.CurrentExp.InitializeTheRecord()
 
 	//
 	fmt.Println("CNT Start")
@@ -141,6 +128,7 @@ func cycle() {
 	// first of all, clear both outputs
 	rcore.CurrentExp.Bolus = 0
 	rcore.CurrentExp.Infusion = 0
+	rcore.CurrentExp.SensorCommand = 0
 
 	// load additional attributes for control algorithms
 	cycleReloadCNTStrategyArgs()
@@ -160,11 +148,25 @@ func cycle() {
 		_decContext.LastNonzero = &dec
 	}
 
+	// --------------------------------------------------------------------
+	// Output the eventual control signal to CUFF
+	rcore.CurrentExp.SensorCommand = dec.SensorCommand
+
+	// Archive the control signals
+	if rcore.CurrentExp.SensorCommand > 0 {
+		//
+		_decContext.LastScheduledPTCMeasurement = rcore.CurrentExp.Mtime
+		_decContext.LastScheduledTOFMeasurement = rcore.CurrentExp.Mtime
+
+		//
+		log.Println("Sensor command: ", rcore.CurrentExp.SensorCommand)
+	}
+
 	//
 	_decContext.LastDecision = &dec
 
 	// update the central data record
-	rcore.CurrentExp.Save([]string{"bolus", "infusion"}, false)
+	rcore.CurrentExp.Save([]string{"bolus", "infusion", "SensorCommand"}, false)
 }
 
 // ----------------------------------------------------------------------
