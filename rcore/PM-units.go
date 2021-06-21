@@ -10,6 +10,35 @@ import (
 type Double = float64
 
 // ----------------------------------------------------------------------
+// Complex record about TOF measurement
+// ----------------------------------------------------------------------
+// LinScale measure:
+// - TOFratio = 100...0
+// - TOFcount = 3, 2, 1, 0
+// - PTCcount = 15, 14, ..., 0
+// ----------------------------------------------------------------------
+//
+type LinScale struct {
+	//
+	Cinp Double
+
+	//
+	TOFRatio int
+	TOFCount int
+	PTCCount int
+
+	//
+	HillEffect Double
+}
+
+// ----------------------------------------------------------------------
+//
+func (ls LinScale) value() int {
+	//
+	return 0
+}
+
+// ----------------------------------------------------------------------
 // 1 unit = 1000
 // -1 unit = 1/1000
 func conv(inval Double, inunit int, outunit int) Double {
@@ -140,8 +169,23 @@ func (h Hill) value(inp Double) Double {
 	return math.Min(h.emax, out)
 }
 
+// ----------------------------------------------------------------------
 //
 func (b Bounds) bound(v Double) Double {
 	//
 	return math.Min(math.Max(v, b.bmin), b.bmax)
+}
+
+// ----------------------------------------------------------------------
+// inp - input Cinp
+func LinScaleModel(inp Double, hill Hill) LinScale {
+	//
+	out := LinScale{}
+
+	//
+	out.HillEffect = hill.value(inp)
+	out.TOFRatio = int(_TOFbounds.bound(100.0 - out.HillEffect))
+
+	//
+	return out
 }

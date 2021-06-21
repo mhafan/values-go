@@ -39,7 +39,12 @@ const (
 	SexMale   = "male"
 	SexFemale = "female"
 
+	//
 	MasterChannel = "vm.master"
+
+	//
+	CuffCommandTOF = 1
+	CuffCommandPTC = 2
 )
 
 // --------------------------------------------------------------------
@@ -104,7 +109,8 @@ type Exprec struct {
 	// cumulative consumption of drug by patient in [mL] of solution
 	ConsumedTotal Double
 	// estimated time till full recovery [s]
-	RecoveryTime int
+	RecoveryTime  int
+	LinScaleValue int
 
 	// ----------------------------------------------------------------
 	// Controlled by TCM.
@@ -235,6 +241,13 @@ func (r *Exprec) Save_d(key string, i Double, keys []string, all bool) {
 }
 
 // --------------------------------------------------------------------
+// init REDIS record when CNT receives START
+func (r *Exprec) InitializeTheRecord() {
+	//
+	r.Save([]string{"ConsumedTotal", "SensorCommand"}, false)
+}
+
+// --------------------------------------------------------------------
 //
 func (r *Exprec) Save(keys []string, all bool) bool {
 	//
@@ -265,6 +278,7 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 	r.Save_i("TOF", r.TOF, keys, all)
 	r.Save_i("PTC", r.PTC, keys, all)
 	r.Save_i("RecoveryTime", r.RecoveryTime, keys, all)
+	r.Save_i("LinScaleValue", r.LinScaleValue, keys, all)
 
 	//
 	r.Save_i("repeStep", r.RepeStep, keys, all)
@@ -340,6 +354,7 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	r.Load_i("TOF", &r.TOF, keys, all)
 	r.Load_i("PTC", &r.PTC, keys, all)
 	r.Load_i("RecoveryTime", &r.RecoveryTime, keys, all)
+	r.Load_i("LinScaleValue", &r.LinScaleValue, keys, all)
 
 	r.Load_i("repeStep", &r.RepeStep, keys, all)
 	r.Load_i("repeBolus", &r.RepeBolus, keys, all)
