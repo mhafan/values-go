@@ -17,11 +17,8 @@ type Decision struct {
 	Mtime int
 
 	// [mL] of solution
-	InfusionML int
-	BolusML    int
-
-	//
-	SensorCommand int
+	InfusionML rcore.Double
+	BolusML    rcore.Double
 }
 
 // ----------------------------------------------------------------------
@@ -37,11 +34,6 @@ type DecContext struct {
 	// context of the previous decision
 	LastDecision *Decision
 	LastNonzero  *Decision
-
-	// ------------------------------------------------------------------
-	// CNT controls TOF/PTC sensor
-	LastScheduledTOFMeasurement int
-	LastScheduledPTCMeasurement int
 }
 
 // ----------------------------------------------------------------------
@@ -54,10 +46,6 @@ func MakeDecContext() *DecContext {
 	out.InitialBolusGiven = false
 	out.LastDecision = nil
 	out.LastNonzero = nil
-
-	//
-	out.LastScheduledPTCMeasurement = 0
-	out.LastScheduledTOFMeasurement = 0
 
 	//
 	return &out
@@ -146,13 +134,6 @@ func (context *DecContext) decisionFWSim(expID *rcore.Exprec, insim *rcore.SIMS)
 }
 
 // ----------------------------------------------------------------------
-//
-func (context *DecContext) cuffControllingDecision(expID *rcore.Exprec, insim *rcore.SIMS, decision *Decision) {
-	//
-	decision.SensorCommand = rcore.CuffCommandPTC + rcore.CuffCommandTOF
-}
-
-// ----------------------------------------------------------------------
 // Decision branching point:
 // input:
 // -- current exprec
@@ -166,7 +147,7 @@ func (context *DecContext) decision(expID *rcore.Exprec, insim *rcore.SIMS) Deci
 	// no initial bolus given so far
 	if context.InitialBolusGiven == false {
 		//
-		ibolus := rcore.InitialBolusExprec(expID)
+		ibolus := insim.Drug.InitialBolusExprec(expID)
 
 		//
 		if ibolus.Value > 0 {
@@ -174,11 +155,9 @@ func (context *DecContext) decision(expID *rcore.Exprec, insim *rcore.SIMS) Deci
 			fmt.Println("IBOLUS ", ibolus.Value)
 
 			//
-			out.BolusML = int(ibolus.Value)
+			out.BolusML = ibolus.Value
 			context.InitialBolusGiven = true
 			context.InitialBolusMTime = expID.Mtime
-			//
-			context.cuffControllingDecision(expID, insim, &out)
 
 			//
 			return out
@@ -197,9 +176,6 @@ func (context *DecContext) decision(expID *rcore.Exprec, insim *rcore.SIMS) Deci
 		//
 		out = context.decisionFWSim(expID, insim)
 	}
-
-	//
-	context.cuffControllingDecision(expID, insim, &out)
 
 	//
 	return out

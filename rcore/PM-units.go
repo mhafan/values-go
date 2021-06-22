@@ -10,35 +10,6 @@ import (
 type Double = float64
 
 // ----------------------------------------------------------------------
-// Complex record about TOF measurement
-// ----------------------------------------------------------------------
-// LinScale measure:
-// - TOFratio = 100...0
-// - TOFcount = 3, 2, 1, 0
-// - PTCcount = 15, 14, ..., 0
-// ----------------------------------------------------------------------
-//
-type LinScale struct {
-	//
-	Cinp Double
-
-	//
-	TOFRatio int
-	TOFCount int
-	PTCCount int
-
-	//
-	HillEffect Double
-}
-
-// ----------------------------------------------------------------------
-//
-func (ls LinScale) value() int {
-	//
-	return 0
-}
-
-// ----------------------------------------------------------------------
 // 1 unit = 1000
 // -1 unit = 1/1000
 func conv(inval Double, inunit int, outunit int) Double {
@@ -118,74 +89,81 @@ func Volume_0() Volume { return Volume{0, ML} }
 func Weight_0() Weight { return Weight{0, ML} }
 
 // ----------------------------------------------------------------------
-//
-func VdFor(drug string, absValue Double, unitValue Double, weight Weight) Volume {
-	//
-	if absValue > 0 {
-		//
-		return Volume{absValue, L}
-	}
-
-	//
-	if unitValue > 0 {
-		//
-		return Volume{unitValue * weight.In(Kg).Value, ML}
-	}
-
-	//
-	return Volume{38.0 * weight.In(Kg).Value, ML}
-}
-
-// ----------------------------------------------------------------------
 // Hill function config
 type Hill struct {
 	//
-	emax Double
+	Emax Double
 
 	//
-	ec50  Double
-	gamma Double
+	EC50  Double
+	Gamma Double
 }
+
+// ----------------------------------------------------------------------
+//
+type Hill4 [4]Hill
 
 // ----------------------------------------------------------------------
 //
 type Bounds struct {
 	//
-	bmin Double
-	bmax Double
+	Bmin Double
+	Bmax Double
 }
 
-// ----------------------------------------------------------------------
-// computed effect
-func (h Hill) value(inp Double) Double {
+//
+func (h Hill) TOFOutput100(valEffect Double) int {
 	//
-	ip := math.Pow(inp, h.gamma)
-	ep := math.Pow(h.ec50, h.gamma)
-
-	//
-	out := h.emax * (ip / (ep + ip))
-
-	//
-	return math.Min(h.emax, out)
+	return int(Bounds{0, 100}.Bound(100.0 - valEffect))
 }
 
 // ----------------------------------------------------------------------
 //
-func (b Bounds) bound(v Double) Double {
+func (b Bounds) In(v Double) bool {
 	//
-	return math.Min(math.Max(v, b.bmin), b.bmax)
+	return v >= b.Bmin && v <= b.Bmax
 }
 
 // ----------------------------------------------------------------------
-// inp - input Cinp
-func LinScaleModel(inp Double, hill Hill) LinScale {
+// computed effect
+func (h Hill) Value(inp Double) Double {
 	//
-	out := LinScale{}
+	ip := math.Pow(inp, h.Gamma)
+	ep := math.Pow(h.EC50, h.Gamma)
 
 	//
-	out.HillEffect = hill.value(inp)
-	out.TOFRatio = int(_TOFbounds.bound(100.0 - out.HillEffect))
+	out := h.Emax * (ip / (ep + ip))
 
 	//
-	return out
+	return math.Min(h.Emax, out)
+}
+
+// ----------------------------------------------------------------------
+// computed effect
+func (h Hill) IValue(inp Double) int {
+	//
+	return int(math.Floor(h.Value(inp) + 0.5))
+}
+
+// ----------------------------------------------------------------------
+// Cinp needed to achieve 99% effect
+// C^g >= E50^g * 1000
+// C ~= E50 * 1000^{-g}
+func (h Hill) Cinp100() Double {
+	//
+	return h.EC50 * math.Pow(100, 1.0/h.Gamma)
+}
+
+// ----------------------------------------------------------------------
+//
+func (b Bounds) Bound(v Double) Double {
+	//
+	return math.Min(math.Max(v, b.Bmin), b.Bmax)
+}
+
+// ----------------------------------------------------------------------
+//
+func (b Bounds) IBound(v int) int {
+	//
+	return int(math.Min(math.Max(Double(v), b.Bmin), b.Bmax))
 }

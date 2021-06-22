@@ -4,6 +4,51 @@ import "math"
 
 // --------------------------------------------------------------------
 //
+type Scheduling struct {
+	//
+	LastExecutedEvent int
+	PlannedInterval   int
+
+	//
+	Running bool
+}
+
+// --------------------------------------------------------------------
+//
+func MakeScheduling(anInterval int) Scheduling {
+	//
+	out := Scheduling{PlannedInterval: anInterval}
+
+	//
+	out.Running = false
+
+	//
+	return out
+}
+
+// --------------------------------------------------------------------
+//
+func (s Scheduling) PlanNext(nowTime int) Scheduling {
+	//
+	out := s
+
+	//
+	out.Running = true
+	out.LastExecutedEvent = nowTime
+
+	//
+	return out
+}
+
+// --------------------------------------------------------------------
+//
+func (s Scheduling) IsTimeToFire(nowTime int) bool {
+	//
+	return (nowTime >= s.LastExecutedEvent+s.PlannedInterval) && s.Running
+}
+
+// --------------------------------------------------------------------
+//
 type MStat struct {
 	//
 	N int

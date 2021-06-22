@@ -4,47 +4,7 @@ package rcore
 // --------------------------------------------------------------------
 // ...
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/gomodule/redigo/redis"
-)
-
-// --------------------------------------------------------------------
-//
-const (
-	// start of a new experiment
-	CallStart = "START"
-	// end of the current experiment
-	CallEnd = "END"
-
-	// Simulation loop calls
-	// TCM -> CNT -> PUMP -> PATMOD -> SENSOR -> TCM
-	CallCNT    = "CNT"
-	CallPump   = "PUMP"
-	CallPatMod = "PATMOD"
-	CallSensor = "SENSOR"
-	CallTCM    = "TCM"
-
-	//
-	DrugRocuronium    = "ROC"
-	DrugCisatracurium = "CIS"
-
-	//
-	CNTStratBasic = "basic"
-	CNTStratFWSim = "fwsim"
-	CNTStratNone  = "none"
-
-	//
-	SexMale   = "male"
-	SexFemale = "female"
-
-	//
-	MasterChannel = "vm.master"
-
-	//
-	CuffCommandTOF = 1
-	CuffCommandPTC = 2
 )
 
 // --------------------------------------------------------------------
@@ -70,7 +30,7 @@ type Exprec struct {
 	// { none, rboluses (default) }
 	CNTStrategy string
 	RepeStep    int
-	RepeBolus   int
+	RepeBolus   Double
 	FwRange     int
 	IbolusMg    Double
 
@@ -78,9 +38,9 @@ type Exprec struct {
 	// Decisions made by CNT (CNT can be disabled and values set from TCM)
 	// Values can be slightly updated by PUMP (noise/fault injection)
 	// [mL]
-	Bolus int
+	Bolus Double
 	// [mL/hr]
-	Infusion int
+	Infusion Double
 
 	// ----------------------------------------------------------------
 	// Parameters essential for PatientModel (PM).
@@ -144,38 +104,24 @@ type Exprec struct {
 }
 
 // --------------------------------------------------------------------
-//
+// global variable for current running experiment
+// --------------------------------------------------------------------
+// LifeCycle:
+// 1) is nil
+// 2) Startup a new record (define default values)
+// 3) save it all
+// 4) update keys & save keys
+// 5) terminate
 var CurrentExp *Exprec
 
 // --------------------------------------------------------------------
-// New experiment ID in the form "vm." + testcase + "." + num
-func NewExpID(testcase string) string {
-	//
-	n, _ := redis.Int(Global.handleOUT.Do("INCR", "vm.expcounter"))
-
-	//
-	return "vm." + testcase + "." + strconv.Itoa(n)
-}
-
-// --------------------------------------------------------------------
-//
+// Allocate a new Exprec record for a given experiment ID
 func MakeExpID(vn string) *Exprec {
 	//
-	return &Exprec{Varname: vn}
-}
+	out := &Exprec{Varname: vn}
 
-// --------------------------------------------------------------------
-//
-func CsvHeader() string {
-	//
-	return "Cycle,Mtime,Bolus,Infusion,Cinp,TOF,PTC,Consumed,RecoveryTime\n"
-}
-
-// --------------------------------------------------------------------
-//
-func (r *Exprec) CsvExport() string {
-	//
-	out := fmt.Sprintf("%d,%d,%d,%d,%.2f,%d,%d,%.2f,%d", r.Cycle, r.Mtime, r.Bolus, r.Infusion, r.Cinp, r.TOF, r.PTC, r.ConsumedTotal, r.RecoveryTime)
+	// set default values for attributes
+	// (golang sets all to zero)
 
 	//
 	return out
@@ -183,7 +129,35 @@ func (r *Exprec) CsvExport() string {
 
 // --------------------------------------------------------------------
 //
-func (r *Exprec) channel() string {
+func (r *Exprec) LoadAll() {
+	//
+	r.Load([]string{}, true)
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) SaveAll() {
+	//
+	r.Save([]string{}, true)
+}
+
+// --------------------------------------------------------------------
+// Startup the contents from CNT
+func (r *Exprec) StartupFromCNT() {
+	//
+	r.Save([]string{"ConsumedTotal", "SensorCommand"}, false)
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) TerminateFromCNT() {
+	//
+	r.SaveAll()
+}
+
+// --------------------------------------------------------------------
+//
+func (r *Exprec) Channel() string {
 	//
 	return r.Varname
 }
@@ -192,7 +166,7 @@ func (r *Exprec) channel() string {
 //
 func (r *Exprec) ischannel(nm string) bool {
 	//
-	return r.channel() == nm
+	return r.Channel() == nm
 }
 
 // --------------------------------------------------------------------
@@ -241,13 +215,6 @@ func (r *Exprec) Save_d(key string, i Double, keys []string, all bool) {
 }
 
 // --------------------------------------------------------------------
-// init REDIS record when CNT receives START
-func (r *Exprec) InitializeTheRecord() {
-	//
-	r.Save([]string{"ConsumedTotal", "SensorCommand"}, false)
-}
-
-// --------------------------------------------------------------------
 //
 func (r *Exprec) Save(keys []string, all bool) bool {
 	//
@@ -263,8 +230,8 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 	r.Save_d("ibolusMg", r.IbolusMg, keys, all)
 
 	//
-	r.Save_i("bolus", r.Bolus, keys, all)
-	r.Save_i("infusion", r.Infusion, keys, all)
+	r.Save_d("bolus", r.Bolus, keys, all)
+	r.Save_d("infusion", r.Infusion, keys, all)
 
 	//
 	r.Save_i("weight", r.Weight, keys, all)
@@ -282,7 +249,7 @@ func (r *Exprec) Save(keys []string, all bool) bool {
 
 	//
 	r.Save_i("repeStep", r.RepeStep, keys, all)
-	r.Save_i("repeBolus", r.RepeBolus, keys, all)
+	r.Save_d("repeBolus", r.RepeBolus, keys, all)
 	r.Save_i("fwRange", r.FwRange, keys, all)
 
 	//
@@ -330,21 +297,12 @@ func (r *Exprec) Load_s(key string, i *string, keys []string, all bool) {
 
 // --------------------------------------------------------------------
 //
-func (r *Exprec) LoadAll() {
-	//
-	r.Load([]string{}, true)
-}
-
-// --------------------------------------------------------------------
-//
 func (r *Exprec) Load(keys []string, all bool) bool {
 	//
 	r.Load_s("drug", &r.Drug, keys, all)
 	r.Load_s("CNTStrategy", &r.CNTStrategy, keys, all)
 
 	//
-	r.Load_i("bolus", &r.Bolus, keys, all)
-	r.Load_i("infusion", &r.Infusion, keys, all)
 	r.Load_i("weight", &r.Weight, keys, all)
 	r.Load_i("age", &r.Age, keys, all)
 	r.Load_i("mtime", &r.Mtime, keys, all)
@@ -357,10 +315,12 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 	r.Load_i("LinScaleValue", &r.LinScaleValue, keys, all)
 
 	r.Load_i("repeStep", &r.RepeStep, keys, all)
-	r.Load_i("repeBolus", &r.RepeBolus, keys, all)
 	r.Load_i("fwRange", &r.FwRange, keys, all)
 
 	//
+	r.Load_d("repeBolus", &r.RepeBolus, keys, all)
+	r.Load_d("bolus", &r.Bolus, keys, all)
+	r.Load_d("infusion", &r.Infusion, keys, all)
 	r.Load_d("EC50", &r.EC50, keys, all)
 	r.Load_d("Cinp", &r.Cinp, keys, all)
 	r.Load_d("ConsumedTotal", &r.ConsumedTotal, keys, all)
@@ -386,5 +346,5 @@ func (r *Exprec) Load(keys []string, all bool) bool {
 //
 func (r *Exprec) Say(message string) {
 	//
-	Global.topublish <- Rmsg{r.channel(), message}
+	Global.topublish <- Rmsg{r.Channel(), message}
 }

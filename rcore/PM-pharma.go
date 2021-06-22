@@ -1,28 +1,44 @@
 package rcore
 
 // ----------------------------------------------------------------------
-// Initil bolus as defined by manufacturer
-func InitialBolus(drug string, wkg int, wcoef Double, kratio Double) Volume {
+// Abstract class for PK/PD models of drugs
+type Drug struct {
 	//
-	_wkg := Double(wkg)
-
-	//
-	switch drug {
-	case DrugRocuronium:
-		// 0.6 mg per [kg] of patient's weight
-		return RocWSOL(Weight{kratio * _wkg * wcoef, Mg}).In(ML)
-	case DrugCisatracurium:
-		// TODO
-		return Volume{0, ML}
-	}
-
-	// default value if drug is set incorrectly
-	return Volume{0, ML}
 }
 
 // ----------------------------------------------------------------------
-// Initil bolus as defined by manufacturer
-func InitialBolusExprec(expr *Exprec) Volume {
+// Abstract class for PK/PD models of drugs - an Interface
+type DrugDef interface {
+	// ...
+	InitialBolus(wkg int, wcoef Double, kratio Double) Volume
+	InitialBolusExprec(expr *Exprec) Volume
+
+	// transformations Weight <-> Volume
+	SolutionUnits(w Weight) Volume
+	WeightUnits(v Volume) Weight
+
+	// Default Volume of Distribution
+	// Default Hill function coeffs
+	DefVd(absValue Double, unitValue Double, weight Weight) Volume
+	DefHillCoefs() Hill
+	DefHill4Coefs() Hill4
+	DefIBolusMgPerKg() Double
+
+	// PK/PD model 1s simulationn step
+	SimStep(ss *SIMS)
+
 	//
-	return InitialBolus(expr.Drug, expr.Weight, expr.Wcoef, expr.IbolusMg)
+	Effect(cinp Double, vd Double, hill Hill) LinScale
+}
+
+// ----------------------------------------------------------------------
+//
+func MakeDrugDef(drugName string) DrugDef {
+	//
+	switch drugName {
+	case DrugRocuronium:
+		return Rocuronium{}
+	default:
+		return Rocuronium{}
+	}
 }

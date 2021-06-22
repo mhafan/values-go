@@ -19,10 +19,23 @@ package main
 //
 import (
 	"flag"
-	"fmt"
 	"log"
 	"rcore"
 )
+
+// ----------------------------------------------------------------------
+// Data structure for CNT Entity and its internal state
+type CNTEntity struct {
+	// CNT module provides default behavior for PUMP & SENSOR
+	defaultBehavior bool
+
+	// decision context
+	decContext *DecContext
+
+	// link to Patient Module Entity
+	PM   *PMEntity
+	CUFF *CUFFEntity
+}
 
 // ----------------------------------------------------------------------
 // direct dosing of NMT blockator:
@@ -36,38 +49,96 @@ var flBolusAmount = flag.Int("B", 5, "Bolus volume [mL of solution]")
 var flDefaultBehavior = flag.Bool("X", false, "Default PUMP/Cuff")
 
 // ----------------------------------------------------------------------
-// The complete information about the CNT's internal state
-// != nil when any experiment initiated and running
-var _decContext *DecContext = nil
+// clear and reset the internal state
+func (e *CNTEntity) ResetState() {
+	//
+	e.decContext = nil
+	// call reset to Patient Model
+	e.PM.ResetState()
+}
 
 // ----------------------------------------------------------------------
-// clear and reset the internal state
-func resetState() {
+//
+func (e *CNTEntity) MyTurn() string {
 	//
-	_decContext = nil
+	return rcore.CallCNT
 }
 
 // ----------------------------------------------------------------------
 // with every START msg, do reset internals
-func startupWithExperiment() {
+func (e *CNTEntity) StartFunction() {
 	// remove the previous one
-	resetState()
+	e.ResetState()
 
 	// start a new context descriptor
-	_decContext = MakeDecContext()
+	e.decContext = MakeDecContext()
 
 	// initiate some REDIS record variables
-	rcore.CurrentExp.InitializeTheRecord()
+	rcore.CurrentExp.StartupFromCNT()
 
 	//
-	fmt.Println("CNT Start")
+	log.Println("CNT Starting experiment: ", rcore.CurrentExp.Channel())
+
+	//
+	e.PM.StartFunction()
+
+	//
+	if e.defaultBehavior {
+		//
+		e.CUFF.StartFunction()
+	}
 }
 
 // ----------------------------------------------------------------------
 // do on END message (closing the experiment)
-func endWithExperiment() {
+func (e *CNTEntity) EndFunction() {
+	//
+	rcore.CurrentExp.TerminateFromCNT()
+
+	//
+	log.Println("CNT Terminating experiment: ", rcore.CurrentExp.Channel())
+
 	// nothing special
-	resetState()
+	e.ResetState()
+
+	//
+	e.PM.EndFunction()
+
+	//
+	if e.defaultBehavior {
+		//
+		e.CUFF.EndFunction()
+	}
+}
+
+// ----------------------------------------------------------------------
+// Default behavior for CNT-Entity
+// 1) calling PM Entity on its commands
+// 2) calling PUMP&Sensor entities if -X
+func (e *CNTEntity) DefaultFunction(msg rcore.Rmsg) {
+	// depending on the message in the channel
+	switch msg.Message {
+	// calling PM
+	case e.PM.MyTurn():
+		//
+		e.PM.CycleFunction()
+
+		//
+	case rcore.CallPump:
+		//
+		if e.defaultBehavior {
+			//
+			rcore.CurrentExp.Say(rcore.CallPatMod)
+		}
+
+		//
+	case rcore.CallSensor:
+		//
+		if e.defaultBehavior {
+			//
+			e.CUFF.CycleFunction()
+		}
+	}
 }
 
 // ----------------------------------------------------------------------
@@ -101,8 +172,8 @@ func cycleReloadCNTStrategyArgs() {
 // mtime/cycle
 // CNTstrategy
 // CNTstrategy args
-func cycle() {
-	// pass the token
+func (e *CNTEntity) CycleFunction() {
+	// dont forget to pass the token
 	defer rcore.CurrentExp.Say(rcore.CallPump)
 
 	// --------------------------------------------------------------------
@@ -125,6 +196,7 @@ func cycle() {
 		return
 	}
 
+	// --------------------------------------------------------------------
 	// first of all, clear both outputs
 	rcore.CurrentExp.Bolus = 0
 	rcore.CurrentExp.Infusion = 0
@@ -135,7 +207,7 @@ func cycle() {
 
 	// --------------------------------------------------------------------
 	// call decision making procedure where it should branch further
-	dec := _decContext.decision(rcore.CurrentExp, rsims)
+	dec := e.decContext.decision(rcore.CurrentExp, e.PM.rsims)
 
 	// --------------------------------------------------------------------
 	// if there is an nonzero output, write it to data rec
@@ -145,50 +217,14 @@ func cycle() {
 		rcore.CurrentExp.Infusion = dec.InfusionML
 
 		//
-		_decContext.LastNonzero = &dec
-	}
-
-	// --------------------------------------------------------------------
-	// Output the eventual control signal to CUFF
-	rcore.CurrentExp.SensorCommand = dec.SensorCommand
-
-	// Archive the control signals
-	if rcore.CurrentExp.SensorCommand > 0 {
-		//
-		_decContext.LastScheduledPTCMeasurement = rcore.CurrentExp.Mtime
-		_decContext.LastScheduledTOFMeasurement = rcore.CurrentExp.Mtime
-
-		//
-		log.Println("Sensor command: ", rcore.CurrentExp.SensorCommand)
+		e.decContext.LastNonzero = &dec
 	}
 
 	//
-	_decContext.LastDecision = &dec
+	e.decContext.LastDecision = &dec
 
 	// update the central data record
 	rcore.CurrentExp.Save([]string{"bolus", "infusion", "SensorCommand"}, false)
-}
-
-// ----------------------------------------------------------------------
-// Bypassing PUMP and SENSOR
-// (if promp arg -X entered)
-func PumpCuffDefaultBehavior(msg rcore.Rmsg) {
-	//
-	if rcore.CurrentExp == nil {
-		//
-		return
-	}
-
-	//
-	switch msg.Message {
-	case rcore.CallPump:
-		//
-		rcore.CurrentExp.Say(rcore.CallPatMod)
-
-	case rcore.CallSensor:
-		//
-		CNTCuffMain(msg)
-	}
 }
 
 // ----------------------------------------------------------------------
@@ -199,27 +235,13 @@ func main() {
 
 	// system data record describing an entity within the HiL
 	// CNT, in this case
-	ent := rcore.MakeNewEntity()
-
-	// the entity gets activated on msg:
-	ent.MyTurn = rcore.CallCNT
-
-	// link 3 procedures implementing
-	// START command
-	// CNT command (for each cycle)
-	// END command
-	ent.WhatStart = startupWithExperiment
-	ent.What = cycle
-	ent.WhatEnd = endWithExperiment
-
-	// secondary entities (PATMOD)
-	ent.Slave = pmEntityCFG()
+	ent := &CNTEntity{}
+	ent.PM = pmEntityCFG()
+	ent.CUFF = MakeCUFFEntity()
 
 	// bypass PUMP & SENSOR if enabled
-	if *flDefaultBehavior {
-		//
-		ent.WhatDefault = PumpCuffDefaultBehavior
-	}
+	// arg -X
+	ent.defaultBehavior = *flDefaultBehavior
 
 	// start listening CallCNT message ("CNT")
 	// runLoop

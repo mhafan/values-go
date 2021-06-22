@@ -18,6 +18,7 @@ var flTC = flag.String("C", "", "Name of test-case")
 var flSex = flag.String("s", rcore.SexMale, "Sex of patient {male/female}")
 var flAge = flag.Int("A", 42, "Age of patient")
 var flWeight = flag.Int("w", 100, "Weight [kg] of patient")
+var flDrug = flag.String("D", rcore.DrugRocuronium, "Drug name {ROC/CIS}")
 
 // --------------------------------------------------------------------
 //
@@ -37,12 +38,15 @@ func mydefs(_c *rcore.Exprec) {
 	//
 	_c.Weight = *flWeight
 	_c.Age = *flAge
+	_c.Drug = *flDrug
+	_c.CNTStrategy = *flCNT_strategy
 
 	//
-	_c.Drug = rcore.DrugRocuronium
-	_c.IbolusMg = 0.6
+	drugInterface := rcore.MakeDrugDef(_c.Drug)
+
+	//
+	_c.IbolusMg = drugInterface.DefIBolusMgPerKg()
 	_c.Wcoef = 1.0
-	_c.CNTStrategy = *flCNT_strategy
 	_c.UnitVd = 38
 	_c.AbsoluteVd = 0
 
@@ -87,12 +91,33 @@ func printCSV(file *os.File, c *rcore.Exprec) {
 
 // --------------------------------------------------------------------
 //
+func checkArgs() bool {
+	//
+	if rcore.Contains([]string{"none", "basic", "fwsim"}, *flCNT_strategy) == false {
+		//
+		log.Println("Wrong CNT Strategy")
+		return false
+	}
+
+	//
+	if rcore.Contains([]string{rcore.DrugRocuronium, rcore.DrugCisatracurium}, *flDrug) == false {
+		//
+		log.Println("Wrong drug")
+		return false
+	}
+
+	//
+	return true
+}
+
+// --------------------------------------------------------------------
+//
 func main() {
 	//
 	flag.Parse()
 
 	// name of TEST-CASE must be given
-	if *flTC == "" {
+	if *flTC == "" || checkArgs() == false {
 		// print help and exit
 		flag.PrintDefaults()
 
@@ -145,7 +170,7 @@ func main() {
 	mydefs(rcore.CurrentExp)
 
 	// REDIS save, publish first msg -> START
-	rcore.CurrentExp.Save([]string{}, true)
+	rcore.CurrentExp.SaveAll()
 	// START !!!
 	// - all participants (CNT, PUMP, PM, SENSOR) are supposed to
 	// get ready for this experiment
@@ -157,7 +182,7 @@ func main() {
 	//
 	_toUpdateFrom := []string{
 		"TOF", "PTC", "bolus", "infusion",
-		"Cinp", "ConsumedTotal", "RecoveryTime"}
+		"Cinp", "ConsumedTotal", "RecoveryTime", "SensorStatus", "SensorCommand"}
 
 	// --------------------------------------------------------------------
 	// The experiment goes in cycles with a predefined number of iterations

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"rcore"
 )
 
@@ -21,7 +20,8 @@ type FWSim struct {
 	pred        rcore.SimPredicate
 
 	//
-	sbolusMax int
+	sbolusMax  rcore.Double
+	sbolusStep rcore.Double
 }
 
 // ----------------------------------------------------------------------
@@ -32,8 +32,11 @@ func FWSimMake(insim *rcore.SIMS, inexp *rcore.Exprec) FWSim {
 
 	//
 	out.insim = insim
-	out.sbolusMax = 20
 	out.forwardTime = inexp.FwRange
+
+	//
+	out.sbolusMax = 20
+	out.sbolusStep = 0.1
 
 	//
 	return out
@@ -42,25 +45,26 @@ func FWSimMake(insim *rcore.SIMS, inexp *rcore.Exprec) FWSim {
 // ----------------------------------------------------------------------
 // Forward Simulator
 // - increasing bolus at t0
-func forwardSimulationBolus(fwc FWSim) int {
+func forwardSimulationBolus(fwc FWSim) rcore.Double {
 	// entering time in the simulation context
 	_t0 := fwc.insim.Time
 
 	// increasing bolus and simulating forward
-	for sbolus := 0; sbolus < fwc.sbolusMax; sbolus++ {
+	for sbolus := 0.0; sbolus <= fwc.sbolusMax; sbolus += fwc.sbolusStep {
 		// ... copy the current state
 		insimClone := fwc.insim.Clone()
 
 		// prepare for forward simulation
 		insimClone.CinpStat.Reset()
+
 		// ... with that given bolus
-		insimClone.Bolus = rcore.Volume{rcore.Double(sbolus), rcore.ML}
+		insimClone.Bolus = rcore.Volume{sbolus, rcore.ML}
 
 		// do simulation steps
 		result := insimClone.SimSteps(_t0 + fwc.forwardTime)
 
 		//
-		fmt.Println("FWSIM ", rcore.CurrentExp.TargetCinpLow, " bolus=", sbolus, "range", fwc.forwardTime, " ", result)
+		// fmt.Println("FWSIM ", rcore.CurrentExp.TargetCinpLow, " bolus=", sbolus, "range", fwc.forwardTime, " ", result)
 
 		//
 		if fwc.pred(result) {

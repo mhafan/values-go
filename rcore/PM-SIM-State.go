@@ -4,9 +4,6 @@ package rcore
 // 3 compartment model
 type COMP_X [3 + 1]Double
 
-//
-var _TOFbounds = Bounds{0, 100}
-
 // ----------------------------------------------------------------------
 // Simulation Predicate
 // SIMS -> bool
@@ -17,13 +14,15 @@ type SimPredicate = func(sim *SIMS) bool
 // ----------------------------------------------------------------------
 type SIMS struct {
 	// assuming this drug CONST
-	Drug string
+	Drug DrugDef
 
 	// --------------------------------------------------------------------
-	// Weight [kg]
-	// Volume of Distribution in Central Compartment (const)
+	// - Weight [kg]
+	// - Volume of Distribution in Central Compartment (const)
+	// - hill coefs
 	Weight    Weight
 	VdCentral Volume
+	HillCoefs Hill
 
 	// --------------------------------------------------------------------
 	// simulation internal data
@@ -33,11 +32,9 @@ type SIMS struct {
 	// Continuous Simulator state variables (integrators)
 	YROC     COMP_X
 	CinpStat MStat
-	RocHill  Hill
 
 	//
-	Effect Double
-	TOF0   int
+	Effect LinScale
 
 	//
 	BolusConsumptionML Double
@@ -54,8 +51,9 @@ func EmptySIMS() *SIMS {
 	//
 	out := SIMS{}
 
-	//
-	out.Drug = DrugRocuronium
+	// default drug driver (will be replaced later on)
+	// default weight and others
+	out.Drug = Rocuronium{}
 	out.Weight = Weight{0, Kg}
 	out.VdCentral = Volume_0()
 	out.Bolus = Volume_0()
@@ -67,9 +65,8 @@ func EmptySIMS() *SIMS {
 
 	//
 	out.YROC = COMP_X{0, 0, 0, 0}
-	out.Effect = 0
-	out.TOF0 = 0
-	out.RocHill = RocDefHill()
+	out.Effect = LinScale{}
+	out.HillCoefs = out.Drug.DefHillCoefs()
 
 	//
 	return &out
@@ -96,27 +93,28 @@ func (r *SIMS) Clone() *SIMS {
 // Initial construction of SIMS from Exprec
 func (r *SIMS) SetupFrom(e *Exprec) {
 	//
-	r.Drug = e.Drug
-	r.Weight = Weight{float64(e.Weight), Kg}
+	r.Drug = MakeDrugDef(e.Drug)
+	r.Weight = Weight{Double(e.Weight), Kg}
 
 	//
-	r.VdCentral = VdFor(r.Drug, float64(e.AbsoluteVd), float64(e.UnitVd), r.Weight)
+	r.VdCentral = r.Drug.DefVd(Double(e.AbsoluteVd), Double(e.UnitVd), r.Weight)
 }
 
 // ----------------------------------------------------------------------
 // rcore.Exprec transger to SIMS (patmod internal data struct)
 func (r *SIMS) UpdateFrom(e *Exprec) {
 	//
-	r.Bolus = Volume{Double(e.Bolus), ML}
-	r.Infusion = Volume{Double(e.Infusion), ML}
+	r.Bolus = Volume{e.Bolus, ML}
+	r.Infusion = Volume{e.Infusion, ML}
 
+	//
 	r.BolusConsumptionML = 0
 	r.CinpStat.Reset()
 
 	//
 	if e.EC50 > 0 {
 		//
-		r.RocHill.ec50 = e.EC50
+		r.HillCoefs.EC50 = e.EC50
 	}
 }
 
@@ -124,7 +122,7 @@ func (r *SIMS) UpdateFrom(e *Exprec) {
 // next state by shifting time
 func (from *SIMS) NextState(at int) *SIMS {
 	// ... copy ...
-	ns := *from
+	ns := from.Clone()
 
 	// shift time
 	ns.Time = at
@@ -134,7 +132,7 @@ func (from *SIMS) NextState(at int) *SIMS {
 	ns.Infusion = Volume_0()
 
 	//
-	return &ns
+	return ns
 }
 
 // ----------------------------------------------------------------------
@@ -150,7 +148,7 @@ func (from *SIMS) SimSteps(till int) *SIMS {
 	// reach Mtime in 1s simulation steps
 	for from.Time <= till {
 		// h = 1s, continuous simulation step
-		from.RocSimStep()
+		from.Drug.SimStep(from)
 
 		// +1s
 		if from.Time+1 <= till {
@@ -172,7 +170,7 @@ func (from *SIMS) SimStepsWhile(pred SimPredicate) *SIMS {
 	// reach Mtime in 1s simulation steps
 	for pred(from) {
 		// h = 1s, continuous simulation step
-		from.RocSimStep()
+		from.Drug.SimStep(from)
 
 		//
 		from = from.Next1S()
